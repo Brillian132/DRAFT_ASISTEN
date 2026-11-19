@@ -1,0 +1,831 @@
+/* Warna aksen bisa berganti halus saat cover album berubah */
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #8b5cf6; }
+@property --accent2 { syntax: "<color>"; inherits: true; initial-value: #c4b5fd; }
+
+:root {
+  --accent: #8b5cf6;
+  --accent2: #c4b5fd;
+  --glow: rgba(139, 92, 246, 0.7);
+  --glow0: rgba(139, 92, 246, 0);
+  --stroke: rgba(196, 181, 253, 0.28); /* garis tepi pill, ikut warna lagu */
+  --stroke-w: 1.5px;
+  --spring: cubic-bezier(0.34, 1.35, 0.5, 1);
+  transition: --accent 0.6s ease, --accent2 0.6s ease;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+
+.hidden { display: none !important; }
+
+#pill {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  width: 124px;
+  height: 36px;
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 var(--stroke-w) var(--stroke);
+  transition: width 0.55s var(--spring), height 0.55s var(--spring),
+    border-radius 0.55s var(--spring), opacity 0.3s, top 0.4s, box-shadow 0.6s ease;
+}
+
+#pill.passive[data-state="small"] { opacity: 0.6; }
+
+#pill[data-state="hidden"] { opacity: 0; top: -8px; width: 88px; height: 30px; }
+#pill[data-state="media"] { width: 620px; height: 172px; border-radius: 46px; }
+#pill[data-state="timer"] { width: 340px; height: 88px; border-radius: 32px; }
+#pill[data-state="add"] { width: 420px; height: 172px; border-radius: 30px; cursor: default; }
+#pill[data-state="reminder"] {
+  width: 410px; height: 112px; border-radius: 34px;
+  animation: glow 1.2s ease-out 2;
+}
+
+/* ada aplikasi fullscreen: pill tidak terlihat sama sekali */
+#pill.fs-hidden { opacity: 0 !important; animation: none !important; }
+
+@keyframes glow {
+  0% { box-shadow: inset 0 0 0 var(--stroke-w) var(--stroke), 0 0 0 0 var(--glow); }
+  100% { box-shadow: inset 0 0 0 var(--stroke-w) var(--stroke), 0 0 0 14px var(--glow0); }
+}
+
+.v {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+#pill[data-state="small"] .v-small,
+#pill[data-state="media"] .v-media,
+#pill[data-state="timer"] .v-timer,
+#pill[data-state="reminder"] .v-reminder,
+#pill[data-state="card"] .v-card,
+#pill[data-state="toast"] .v-toast,
+#pill[data-state="power"] .v-power,
+#pill[data-state="dokumen"] .v-dok,
+#pill[data-state="add"] .v-add {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.25s 0.2s;
+}
+
+.v-small { justify-content: center; gap: 8px; font-weight: 600; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+.cover {
+  flex: none; width: 64px; height: 64px; border-radius: 16px;
+  background: linear-gradient(135deg, #a78bfa, #4c1d95 70%);
+  background-size: cover;
+  background-position: center;
+}
+
+.meta { flex: 1; min-width: 0; }
+.meta small { display: block; font-size: 0.7rem; color: #9a9aa6; }
+.meta small.accent-text { color: var(--accent2); }
+.meta b {
+  display: block; font-size: 0.95rem; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.prog { height: 4px; border-radius: 2px; background: #2a2a33; margin-top: 9px; overflow: hidden; }
+.prog span { display: block; height: 100%; width: 38%; background: var(--accent2); border-radius: 2px; }
+
+.ctl { display: flex; gap: 6px; }
+.ctl button, .round {
+  border: 0; background: #26262e; color: #fff;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+}
+.ctl button.main, .round.main { background: var(--accent); }
+svg { display: block; }
+
+.ring { flex: none; position: relative; width: 56px; height: 56px; }
+.ring svg { transform: rotate(-90deg); }
+#rg { stroke: var(--accent2); }
+.big { font-size: 1.7rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+
+.bell {
+  flex: none; position: relative; width: 44px; height: 44px;
+  border-radius: 50%; background: #1d1530; display: grid; place-items: center;
+}
+.bell { background: color-mix(in srgb, var(--accent) 22%, #000); }
+.bell svg { stroke: var(--accent2); }
+.bell em {
+  position: absolute; top: -1px; right: -1px; width: 12px; height: 12px;
+  border-radius: 50%; background: #ef4444; border: 2px solid #000;
+}
+
+.acts { display: flex; gap: 8px; margin-top: 8px; }
+.acts button {
+  border: 0; border-radius: 999px; padding: 6px 14px;
+  font: 600 0.75rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  cursor: pointer; background: #26262e; color: #fff;
+}
+.acts button.pri { background: var(--accent); }
+
+/* ---------- form tambah ---------- */
+
+.add-wrap { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+
+.seg-row { display: flex; align-items: center; justify-content: space-between; }
+
+.seg { display: flex; gap: 4px; background: #16161d; padding: 3px; border-radius: 999px; }
+.seg button {
+  border: 0; background: transparent; color: #9a9aa6; cursor: pointer;
+  padding: 5px 14px; border-radius: 999px;
+  font: 600 0.75rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+.seg button.on { background: var(--accent); color: #fff; }
+
+.fields { display: flex; align-items: center; gap: 8px; }
+.unit { font-size: 0.8rem; color: #9a9aa6; }
+
+.fields input {
+  background: #1c1c24; color: #fff; border: 1px solid #2e2e3a;
+  border-radius: 10px; padding: 7px 10px; min-width: 0;
+  font: 400 0.85rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  outline: none; user-select: text; color-scheme: dark;
+}
+.fields input:focus { border-color: var(--accent); }
+.fields input.bad { border-color: #ef4444; }
+.fields input[type="text"] { flex: 1; }
+.fields input.num { width: 68px; text-align: center; }
+.fields input.time { width: 112px; }
+
+.v-add .acts { margin-top: 0; }
+
+/* ---------- daftar pengingat ---------- */
+
+.rem-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 114px; overflow-y: auto; padding-right: 4px;
+}
+.rem-list::-webkit-scrollbar { width: 6px; }
+.rem-list::-webkit-scrollbar-thumb { background: #2e2e3a; border-radius: 3px; }
+
+.rem-item {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  background: #16161d; border-radius: 12px; padding: 4px 6px 4px 12px; min-height: 34px;
+}
+.rem-item .txt {
+  flex: 1; min-width: 0; font-size: 0.85rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rem-item .when { font-size: 0.72rem; color: var(--accent2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rem-item.past .when { color: #9a9aa6; }
+.rem-item button {
+  flex: none; border: 0; background: #26262e; color: #fff; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+}
+.rem-item button:hover { background: #ef4444; }
+.rem-empty { color: #9a9aa6; font-size: 0.8rem; text-align: center; padding: 22px 0; }
+
+/* =========================================
+   --- MATA AI ---
+   Warna mata dikendalikan variabel --eye.
+   ========================================= */
+
+.v-assistant {
+  justify-content: center;
+}
+
+.ai-face {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.eye {
+  --eye: #c4b5fd; /* ungu terang */
+  width: 12px;
+  height: 12px;
+  background-color: var(--eye);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--eye);
+
+  /* Tatapan dan kedipan digerakkan oleh main.js lewat variabel di #pill:
+     --gx / --gy = arah lirikan (piksel), --gdur = lama pindah, --blink = tinggi mata (1 = terbuka).
+     Memakai properti `translate` dan `scale` (terpisah dari `transform`)
+     supaya tidak bentrok dengan animasi berdenyut dan ekspresi mata. */
+  translate: calc(var(--gx, 0) * 1px) calc(var(--gy, 0) * 1px);
+  scale: 1 var(--blink, 1);
+  transition:
+    background-color 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease,
+    width 0.25s ease, height 0.25s ease, border-radius 0.25s ease, transform 0.25s ease,
+    translate var(--gdur, 0.14s) cubic-bezier(0.22, 1, 0.36, 1),
+    scale 0.07s ease-out;
+}
+
+/* efek perspektif: mata di arah lirikan sedikit menyempit, yang jauh sedikit melebar */
+.eye.l { scale: calc(1 + var(--gx, 0) * 0.018) var(--blink, 1); }
+.eye.r { scale: calc(1 - var(--gx, 0) * 0.018) var(--blink, 1); }
+
+/* Mendengarkan: hijau, berdenyut */
+#pill[data-state="listening"] .eye {
+  --eye: #22c55e;
+  box-shadow: 0 0 12px var(--eye);
+  animation: listenPulse 0.8s infinite alternate;
+}
+
+@keyframes listenPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.4); }
+}
+
+/* Berpikir: biru, menyipit jadi garis */
+#pill[data-state="thinking"] .ai-face { gap: 10px; }
+#pill[data-state="thinking"] .eye {
+  --eye: #3b82f6;
+  width: 18px;
+  height: 5px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--eye);
+  animation: none;
+}
+
+/* Tampilkan mata saat listening dan thinking */
+#pill[data-state="listening"] .v-assistant,
+#pill[data-state="thinking"] .v-assistant {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.2s;
+}
+
+/* Mata ungu tampil saat idle (state small) dan tidak ada timer berjalan */
+#pill[data-state="small"]:not(.has-timer) .v-assistant {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.25s 0.2s;
+}
+
+/* Jam disembunyikan saat idle, diganti mata */
+#pill[data-state="small"]:not(.has-timer) .v-small {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- ekspresi mata (diatur lewat data-mood di #pill) ---------- */
+
+/* senang: mata melengkung ke atas, seperti ^ ^ */
+#pill[data-mood="happy"] .eye {
+  width: 16px;
+  height: 8px;
+  background: transparent;
+  border: 3px solid var(--eye);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -2px 8px var(--eye);
+  animation: none;
+}
+
+/* kaget / bertanya: mata membulat dan berongga */
+#pill[data-mood="surprised"] .eye {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: 3px solid var(--eye);
+  animation: none;
+}
+
+/* khawatir: mata miring ke dalam */
+#pill[data-mood="worried"] .eye {
+  width: 15px;
+  height: 4px;
+  border-radius: 4px;
+  animation: none;
+}
+#pill[data-mood="worried"] .eye.l { transform: rotate(22deg); }
+#pill[data-mood="worried"] .eye.r { transform: rotate(-22deg); }
+
+/* =========================================
+   --- KARTU: izin & hasil perintah ---
+   Warna kartu mengikuti nada (data-tone):
+   ok = hijau, warn = kuning, bad = merah, info = ungu
+   ========================================= */
+
+#pill { --tone: #8b5cf6; }
+#pill[data-tone="ok"] { --tone: #22c55e; }
+#pill[data-tone="warn"] { --tone: #f59e0b; }
+#pill[data-tone="bad"] { --tone: #ef4444; }
+#pill[data-tone="info"] { --tone: #8b5cf6; }
+
+#pill[data-state="card"] {
+  width: 420px;
+  height: 124px;
+  border-radius: 34px;
+  cursor: default;
+  --stroke: color-mix(in srgb, var(--tone) 55%, transparent);
+  --glow: color-mix(in srgb, var(--tone) 70%, transparent);
+  --glow0: color-mix(in srgb, var(--tone) 0%, transparent);
+  animation: glow 1.2s ease-out 1;
+}
+
+/* kartu hasil bisa ditutup dengan klik */
+#pill[data-state="card"][data-kartu="status"] { cursor: pointer; }
+
+.v-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--tone) 36%, transparent), transparent 62%);
+  pointer-events: none;
+}
+.v-card > * { position: relative; z-index: 1; }
+
+/* wajah kecil di kartu */
+.kt-face {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.kt-face .eye { --eye: var(--tone); }
+
+.v-card .meta small { color: color-mix(in srgb, var(--tone) 70%, #ffffff); font-weight: 600; }
+.v-card .meta small#kt-hint { color: #9a9aa6; font-weight: 400; margin-top: 4px; }
+.v-card .meta b {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+.v-card .acts { margin-top: 8px; }
+.v-card .acts button.pri { background: #fff; color: #000; }
+.v-card .acts button:hover { filter: brightness(1.15); }
+
+/* =========================================
+   --- TOAST: notifikasi singkat ---
+   charger, Bluetooth, mikrofon/kamera dipakai
+   ========================================= */
+
+#pill[data-state="toast"] {
+  width: 262px;
+  height: 52px;
+  border-radius: 26px;
+  cursor: default;
+  --stroke: color-mix(in srgb, var(--tone) 55%, transparent);
+  --glow: color-mix(in srgb, var(--tone) 70%, transparent);
+  --glow0: color-mix(in srgb, var(--tone) 0%, transparent);
+  animation: glow 1.2s ease-out 1;
+}
+
+.v-toast { gap: 10px; padding: 0 18px; }
+
+.ts-ic {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--tone) 22%, #000);
+}
+.ts-ic svg path { fill: var(--tone); }
+
+/* ikon charger berdenyut dua kali saat muncul */
+.ts-ic.pulse svg { animation: petir 0.9s ease-in-out 2; }
+@keyframes petir {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+}
+
+.v-toast .meta b { font-size: 0.82rem; }
+.v-toast .meta small { color: color-mix(in srgb, var(--tone) 70%, #ffffff); font-weight: 600; }
+
+.ts-val {
+  flex: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+}
+
+/* =========================================
+   --- INDIKATOR mikrofon / kamera ---
+   titik kecil di sudut kiri atas pill
+   ========================================= */
+
+.indikator {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  gap: 5px;
+  pointer-events: none;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+}
+/* pada tampilan besar, titik pindah ke sudut kiri atas supaya tidak menutupi isi */
+#pill:not([data-state="small"]):not([data-state="listening"]):not([data-state="thinking"]) .indikator {
+  top: 10px;
+  left: 16px;
+  transform: none;
+}
+#pill[data-state="add"] .indikator { display: none; }
+
+.ind {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation: ind-denyut 1.8s ease-in-out infinite;
+}
+.ind-mic { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.ind-cam { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+@keyframes ind-denyut {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* =========================================
+   --- ANIMASI CHARGER (state "power") ---
+   colok : colokan + stopkontak bertemu, percikan, lalu cincin persen terisi
+   cabut : cincin persen, lalu colokan dan stopkontak saling menjauh
+   rendah: cincin merah bergetar
+   Mode dipilih lewat data-power di #pill: plug | unplug | low
+   ========================================= */
+
+#pill[data-state="power"] {
+  width: 304px;
+  height: 72px;
+  border-radius: 36px;
+  cursor: default;
+  --stroke: color-mix(in srgb, var(--tone) 55%, transparent);
+  --glow: color-mix(in srgb, var(--tone) 70%, transparent);
+  --glow0: color-mix(in srgb, var(--tone) 0%, transparent);
+  animation: glow 1.2s ease-out 1;
+}
+#pill[data-state="power"] .indikator { display: none; }
+
+.v-power { gap: 12px; padding: 0 18px 0 12px; }
+
+.pw-stage { position: relative; flex: none; width: 72px; height: 56px; }
+.pw-pair { position: absolute; inset: 0; }
+
+/* colokan (menghadap kanan) dan stopkontak (menghadap kiri); posisi bersatu = prongs masuk lubang */
+.pw-plug, .pw-socket {
+  position: absolute;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  opacity: 0;
+}
+.pw-plug { left: 16px; }
+.pw-socket { left: 20.5px; }
+.pw-plug svg, .pw-socket svg { width: 100%; height: 100%; display: block; }
+.pw-plug svg rect { fill: var(--tone); }
+.pw-socket svg rect { fill: var(--tone); }
+.pw-socket svg .pw-sock-body { fill: none; stroke: var(--tone); stroke-width: 2; }
+
+/* percikan di titik temu */
+.pw-spark {
+  position: absolute;
+  left: 43px;
+  top: 28px;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 2px solid var(--tone);
+  box-shadow: 0 0 10px var(--tone), inset 0 0 6px var(--tone);
+  opacity: 0;
+}
+
+/* cincin persen */
+.pw-ringwrap { position: absolute; left: 12px; top: 4px; width: 48px; height: 48px; opacity: 0; }
+.pw-ring { width: 48px; height: 48px; transform: rotate(-90deg); display: block; }
+.pw-ring circle { fill: none; stroke-width: 4; }
+.pw-ring-bg { stroke: color-mix(in srgb, var(--tone) 20%, #000); }
+.pw-ring-fg {
+  stroke: var(--tone);
+  stroke-linecap: round;
+  stroke-dasharray: 125.66px;
+  stroke-dashoffset: calc(125.66px * (1 - var(--pw, 0)));
+  transition: stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pw-bolt { position: absolute; left: 15px; top: 15px; width: 18px; height: 18px; display: block; }
+.pw-bolt path { fill: var(--tone); }
+
+.v-power .meta b { font-size: 0.85rem; }
+.v-power .meta small { color: color-mix(in srgb, var(--tone) 70%, #ffffff); font-weight: 600; }
+.pw-val {
+  flex: none;
+  font-weight: 800;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+}
+
+/* ---------- COLOK ---------- */
+#pill[data-power="plug"] .pw-plug {
+  animation: pw-plug-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both,
+             pw-hilang 0.3s ease 0.95s forwards;
+}
+#pill[data-power="plug"] .pw-socket {
+  animation: pw-socket-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both,
+             pw-hilang 0.3s ease 0.95s forwards;
+}
+#pill[data-power="plug"] .pw-spark { animation: pw-percik 0.5s ease-out 0.5s both; }
+#pill[data-power="plug"] .pw-ringwrap { animation: pw-muncul 0.4s ease 0.95s both; }
+
+/* ---------- CABUT ---------- */
+#pill[data-power="unplug"] .pw-ringwrap {
+  animation: pw-muncul 0.3s ease both,
+             pw-hilang 0.3s ease 0.6s forwards;
+}
+#pill[data-power="unplug"] .pw-ring-fg { transition: none; }
+#pill[data-power="unplug"] .pw-plug {
+  animation: pw-muncul 0.25s ease 0.6s both,
+             pw-lepas-kiri 0.6s cubic-bezier(0.4, 0, 0.2, 1) 1s forwards;
+}
+#pill[data-power="unplug"] .pw-socket {
+  animation: pw-muncul 0.25s ease 0.6s both,
+             pw-lepas-kanan 0.6s cubic-bezier(0.4, 0, 0.2, 1) 1s forwards;
+}
+#pill[data-power="unplug"] .pw-spark { animation: pw-percik 0.5s ease-out 0.95s both; }
+
+/* ---------- BATERAI RENDAH ---------- */
+#pill[data-power="low"] .pw-pair { display: none; }
+#pill[data-power="low"] .pw-ring-fg { transition: none; }
+#pill[data-power="low"] .pw-ringwrap {
+  animation: pw-muncul 0.3s ease both,
+             pw-getar 0.5s ease 0.35s 3;
+}
+
+@keyframes pw-plug-in {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pw-socket-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pw-lepas-kiri {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0.25; transform: translateX(-24px); }
+}
+@keyframes pw-lepas-kanan {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0.25; transform: translateX(24px); }
+}
+@keyframes pw-hilang {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.6); }
+}
+@keyframes pw-muncul {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pw-percik {
+  0%   { opacity: 1; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(3.4); }
+}
+@keyframes pw-getar {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* =========================================
+   --- LIRIK LAGU ---
+   - baris artis di tampilan media diganti baris lirik
+   - klik cover = mode lirik (state "lirik"): baris sekarang + baris berikutnya
+   ========================================= */
+
+/* cover jadi tombol, dengan lencana kecil kalau lirik tersedia */
+.cover { position: relative; }
+.cv-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #26262e;
+  border: 2px solid #000;
+  display: grid;
+  place-items: center;
+}
+.cv-badge svg path { fill: #9a9aa6; }
+.cv-badge.on { background: var(--accent); }
+.cv-badge.on svg path { fill: #fff; }
+
+
+
+/* efek ganti baris: naik halus dari bawah */
+.lirik-ganti { animation: lirik-masuk 0.28s ease both; }
+@keyframes lirik-masuk {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* penanda versi: dibaca lewat getComputedStyle(document.documentElement).getPropertyValue("--versi") */
+:root { --versi: "media-halaman-2"; }
+
+/* =========================================
+   --- TAMPILAN MEDIA: TIGA HALAMAN YANG BISA DIGESER ---
+   halaman 1 Media, halaman 2 Timer, halaman 3 Pengingat
+   ========================================= */
+
+.v-media { padding: 0; gap: 0; overflow: hidden; touch-action: pan-y; }
+.pg-track {
+  display: flex;
+  flex: none;          /* jangan menyusut: lebarnya harus tepat 3 halaman */
+  width: 300%;
+  min-width: 300%;
+  height: 100%;
+  transition: transform 0.45s var(--spring);
+}
+.pg {
+  flex: 0 0 33.3333%;
+  min-width: 0;
+  overflow: hidden;    /* isi satu halaman tidak boleh tumpah ke halaman lain */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 28px 28px;
+}
+
+/* kolom kanan (dipakai ketiga halaman): garis pemisah tipis */
+.pm-lyr {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  box-sizing: border-box;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.pm-lyr small { display: block; color: #8a8a98; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- halaman 1: media ---------- */
+.pg-media .cover { width: 92px; height: 92px; border-radius: 22px; cursor: default; }
+.pm-mid { flex: none; width: 230px; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.pm-mid b { font-size: 1.1rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm-mid .prog { margin-top: 0; }
+.pm-ctl { gap: 10px; align-items: center; }
+.pm-ctl button { width: 40px; height: 40px; }
+.pm-ctl button.main { width: 48px; height: 48px; }
+.pm-ctl button#lyr { border: 2px solid var(--accent2); }
+.pm-ctl button#lyr path { fill: var(--accent2); }
+.pm-ctl button#lyr.off { border-color: #4a4a58; }
+.pm-ctl button#lyr.off path { fill: #6b6b78; }
+#m-lyr-now {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+/* ---------- halaman 2: timer ---------- */
+.pt-ring { position: relative; flex: none; width: 92px; height: 92px; }
+.pt-ring svg { transform: rotate(-90deg); }
+#pt-time { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pt-mid { flex: none; width: 230px; display: flex; flex-direction: column; gap: 10px; }
+.pt-mid > small { color: var(--accent2); font-weight: 600; font-size: 0.8rem; }
+.pt-presets { display: flex; gap: 8px; }
+.pt-preset {
+  height: 34px; padding: 0 13px; border: 0; border-radius: 17px;
+  background: #26262e; color: #fff; cursor: pointer;
+  font: 600 0.8rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+.pt-preset.on { background: var(--accent2); color: #000; font-weight: 800; }
+.pt-row { display: flex; align-items: center; gap: 8px; }
+.pt-row span { font-size: 0.8rem; color: #9a9aa6; }
+.pt-row input, .pr-form input {
+  background: #1c1c24; color: #fff; border: 1px solid #2e2e3a; border-radius: 10px;
+  padding: 8px 10px; min-width: 0; outline: none; user-select: text; color-scheme: dark;
+  font: 400 0.85rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+.pt-row input { width: 64px; text-align: center; }
+.pt-row input:focus, .pr-form input:focus { border-color: var(--accent); }
+.pt-row input.bad, .pr-form input.bad { border-color: #ef4444; }
+.go {
+  height: 40px; padding: 0 24px; border: 0; border-radius: 20px;
+  background: #fff; color: #000; cursor: pointer;
+  font: 800 0.88rem "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+.go:hover { filter: brightness(0.92); }
+.pt-next > small:first-child { color: var(--accent2); font-weight: 600; }
+#pt-next-time { font-size: 1.1rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- halaman 3: pengingat ---------- */
+.pr-form { flex: none; width: 272px; display: flex; flex-direction: column; gap: 10px; }
+.pr-form > small { color: var(--accent2); font-weight: 600; font-size: 0.8rem; }
+.pr-form input[type="text"] { width: 100%; box-sizing: border-box; }
+.pr-row { display: flex; align-items: center; gap: 8px; }
+.pr-row input { width: 112px; }
+.pr-list { gap: 6px; }
+.pr-list .rem-empty { padding: 8px 0; text-align: left; }
+
+/* ---------- titik halaman di bawah tengah ---------- */
+.pg-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+}
+.pg-dot { border: 0; background: none; padding: 7px 3px; cursor: pointer; }
+.pg-dot::before {
+  content: "";
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 3px;
+  background: #4a4a58;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+.pg-dot.on::before { width: 18px; background: var(--accent2); }
+.pg-dot:hover::before { background: #6b6b78; }
+.pg-dot.on:hover::before { background: var(--accent2); }
+
+/* =========================================
+   --- HASIL PENCARIAN DOKUMEN ---
+   satu kartu bergaya notifikasi; kartu lain mengintip di bawahnya
+   ========================================= */
+#pill[data-state="dokumen"] { width: 460px; height: 96px; border-radius: 30px; cursor: default; z-index: 2; }
+.v-dok { padding: 0 16px 0 18px; }
+.dk-kartu { width: 100%; display: flex; align-items: center; gap: 14px; min-width: 0; cursor: pointer; }
+.dk-ikon {
+  flex: none; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #a78bfa, #6d28d9); box-shadow: 0 4px 14px rgba(109, 40, 217, 0.35);
+}
+.dk-ikon[data-tipe="pdf"] { background: linear-gradient(135deg, #f87171, #b91c1c); box-shadow: 0 4px 14px rgba(185, 28, 28, 0.35); }
+.dk-ikon[data-tipe="word"] { background: linear-gradient(135deg, #60a5fa, #1d4ed8); box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35); }
+.dk-ikon[data-tipe="excel"] { background: linear-gradient(135deg, #4ade80, #15803d); box-shadow: 0 4px 14px rgba(21, 128, 61, 0.35); }
+.dk-ikon[data-tipe="ppt"] { background: linear-gradient(135deg, #fb923c, #c2410c); box-shadow: 0 4px 14px rgba(194, 65, 12, 0.35); }
+.dk-ikon[data-tipe="teks"] { background: linear-gradient(135deg, #94a3b8, #475569); box-shadow: none; }
+.dk-ikon[data-tipe="kosong"] { background: #26262e; box-shadow: none; }
+.dk-ikon span { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.02em; color: #fff; }
+.dk-teks { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dk-atas { display: flex; justify-content: space-between; gap: 10px; }
+.dk-atas small { font-size: 0.7rem; color: #9a9aa6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dk-hitung { flex: none; color: var(--accent2); font-weight: 600; font-variant-numeric: tabular-nums; }
+#dk-nama { font-size: 0.95rem; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dk-sub { font-size: 0.74rem; color: #9a9aa6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#dk-sub.galat { color: #fca5a5; }
+.dk-kartu button {
+  flex: none; border: 0; width: 30px; height: 30px; border-radius: 50%; background: #26262e;
+  display: grid; place-items: center; cursor: pointer;
+}
+.dk-kartu button:hover { background: var(--accent); }
+#dk-tutup:hover { background: #ef4444; }
+
+/* efek geser antar dokumen */
+.dk-kartu.geser-naik .dk-ikon, .dk-kartu.geser-naik .dk-teks { animation: dk-naik 0.24s ease both; }
+.dk-kartu.geser-turun .dk-ikon, .dk-kartu.geser-turun .dk-teks { animation: dk-turun 0.24s ease both; }
+@keyframes dk-naik { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes dk-turun { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+
+/* dua kartu tipis yang mengintip di bawah pill (di luar #pill, jadi tidak terpotong) */
+.dk-tumpuk {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 1;
+  height: 30px; border-radius: 24px; background: #121218;
+  box-shadow: inset 0 0 0 1px rgba(196, 181, 253, 0.2);
+  opacity: 0; pointer-events: none; cursor: pointer;
+  transition: opacity 0.3s ease 0.3s;
+}
+.dk-tumpuk-1 { top: 80px; width: 420px; }
+.dk-tumpuk-2 { top: 92px; width: 380px; background: #0d0d12; z-index: 0; }   /* di belakang kartu pertama */
+body.dok-t1 .dk-tumpuk-1 { opacity: 1; pointer-events: auto; }
+body.dok-t2 .dk-tumpuk-2 { opacity: 1; pointer-events: auto; }
+body:not(.dok-t1) .dk-tumpuk-1, body:not(.dok-t2) .dk-tumpuk-2 { transition-delay: 0s; }

@@ -1,0 +1,33 @@
+# --- Abaikan file sistem dan konfigurasi editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Abaikan file Python ---
+__pycache__/
+*.pyc
+*.bak-dokumen
+venv/
+.venv/
+backend-python-eksperimen/build/
+backend-python-eksperimen/dist/
+backend-python-eksperimen/*.exe
+
+# --- Abaikan file Frontend (Tauri/Node) ---
+node_modules/
+frontend-tauri-eksperimen/pillow-island/node_modules/
+frontend-tauri-eksperimen/pillow-island/src-tauri/target/
+frontend-tauri-eksperimen/pillow-island/dist/
+
+# --- File rahasia (SANGAT PENTING) ---
+.env
+*.env
+config.json
+# Abaikan file executable dan build
+*.exe
+*.dll
+*.bin
+binaries/
+tes_server_dist/
+*_dist/
