@@ -1,9 +1,9 @@
 """Kontrol jendela aplikasi di Windows untuk Pillow Island.
 
-  minimize chrome        -> semua jendela Chrome diminimize
-  maksimalkan opera      -> jendela Opera dimaksimalkan
-  tampilkan chrome       -> jendela Chrome dimunculkan lagi dan diberi fokus
-  buka opera (saat Opera sudah berjalan) -> jendela Opera yang SUDAH ADA dimunculkan,
+  minimize brave         -> semua jendela Brave diminimize
+  maksimalkan brave      -> jendela Brave dimaksimalkan
+  tampilkan brave        -> jendela Brave dimunculkan lagi dan diberi fokus
+  buka brave (saat Brave sudah berjalan) -> jendela Brave yang SUDAH ADA dimunculkan,
                             bukan membuka aplikasi atau tab baru
 
 Hanya memakai ctypes bawaan Python (tanpa library tambahan). Semua panggilan Windows terkumpul di
@@ -16,8 +16,8 @@ SW_MAXIMIZE, SW_MINIMIZE, SW_SHOW, SW_RESTORE = 3, 6, 5, 9
 
 # kunci -> (nama untuk diucapkan, nama file program, kata pengenal dalam perintah)
 APP = {
-    "opera": ("Opera", {"opera.exe"}, ["opera gx", "opera"]),
-    "chrome": ("Chrome", {"chrome.exe"}, ["google chrome", "chrome", "krom"]),
+    # "chrome" dan "opera" ikut diarahkan ke Brave (browser yang dipakai asisten sekarang)
+    "brave": ("Brave", {"brave.exe"}, ["brave", "google chrome", "chrome", "krom", "opera gx", "opera"]),
     "word": ("Word", {"winword.exe"}, ["word"]),
     "excel": ("Excel", {"excel.exe"}, ["excel"]),
     "powerpoint": ("PowerPoint", {"powerpnt.exe"}, ["powerpoint"]),
@@ -29,7 +29,7 @@ APP = {
 
 # "buka X" saat X sudah berjalan = munculkan jendela yang ada. Notepad sengaja tidak masuk:
 # membuka beberapa Notepad itu wajar. Hapus/tambah nama di sini sesuai selera.
-SATU_JENDELA = {"opera", "chrome", "word", "excel", "powerpoint", "discord", "steam", "spotify"}
+SATU_JENDELA = {"brave", "word", "excel", "powerpoint", "discord", "steam", "spotify"}
 
 _POLA_AKSI = {
     "minimize": r"\b(?:minimi[sz]e|minimais|minimalkan|kecilkan|sembunyikan)\b",
@@ -40,7 +40,7 @@ _POLA_AKSI = {
 
 # ------------------------------------------------------------------ mengenali perintah
 def kenali_app(teks):
-    """Kembalikan kunci aplikasi (mis. 'opera') yang disebut dalam teks, atau None."""
+    """Kembalikan kunci aplikasi (mis. 'brave') yang disebut dalam teks, atau None."""
     t = teks.lower()
     for kunci, (_nama, _exe, kata) in APP.items():
         for k in kata:

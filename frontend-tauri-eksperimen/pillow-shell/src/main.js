@@ -3,9 +3,9 @@ const $ = (id) => document.getElementById(id);
 
 const APPS = [
   {
-    id: "chrome",
-    n: "Chrome",
-    i: '<span style="display:block;width:100%;height:100%;border-radius:50%;position:relative;background:conic-gradient(from -60deg,#ea4335 0 120deg,#fbbc05 0 240deg,#34a853 0)"><span style="position:absolute;inset:27%;border-radius:50%;background:#4285f4;border:2px solid #fff"></span></span>',
+    id: "brave",
+    n: "Brave",
+    i: '<svg viewBox="0 0 24 24"><path fill="#fb542b" d="M12 1.5 20.5 4.5 19.5 15 12 22.5 4.5 15 3.5 4.5z"/><text x="12" y="15.8" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" font-weight="700" fill="#fff">B</text></svg>',
   },
   {
     id: "steam",
@@ -16,11 +16,6 @@ const APPS = [
     id: "vscode",
     n: "Visual Studio Code",
     i: '<svg viewBox="0 0 24 24"><path fill="#2489ca" d="M17.5 2.5 9 10.3 4.8 7.2 3 8.1v7.8l1.8.9L9 13.7l8.5 7.8 3.5-1.7V4.2z"/><path fill="#0b5a96" opacity=".55" d="M9 10.3 4.8 7.2 3 8.1v7.8l1.8.9L9 13.7z"/></svg>',
-  },
-  {
-    id: "opera",
-    n: "Opera",
-    i: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff1b2d"/><ellipse cx="12" cy="12" rx="3.4" ry="6.4" fill="none" stroke="#fff" stroke-width="2.2"/></svg>',
   },
 ];
 
