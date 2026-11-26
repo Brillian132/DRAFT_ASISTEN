@@ -401,6 +401,7 @@ function showNext() {
     $("snooze").textContent = "+5 menit";
   }
   setState("reminder");
+  kirimWA(`${$("al-kind").textContent}: ${$("al-title").textContent}`);   // teruskan ke WhatsApp
   beep();
 }
 
@@ -974,6 +975,7 @@ listen("power", (e) => {
     tampilToast({ power: true, mode: "unplug", percent: persen, nada: "info", ms: 3300 });
   } else if (p.kind === "low") {
     tampilToast({ power: true, mode: "low", percent: persen, nada: "bad", ms: 4500 });
+    kirimWA("Baterai rendah: " + persen + "%. Hubungkan charger.");
   }
 });
 
@@ -1570,6 +1572,11 @@ window.addEventListener("keydown", (e) => {
   else if (e.key === "Enter" && dokData.hasil.length) { e.preventDefault(); bukaDokumenKini("buka"); }   // preventDefault: jangan ikut menekan tombol yang masih berfokus
 });
 window.tampilDokumen = tampilDokumen;   // untuk uji di Console
+
+/* ---------- teruskan pengingat dan baterai rendah ke WhatsApp (lewat server lokal; diam kalau belum diaktifkan) ---------- */
+function kirimWA(teks) {
+  pyFetch(`${PY_BASE}/wa/kirim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ teks }) }).catch(() => {});
+}
 
 /* ---------- mulai ---------- */
 (async () => {

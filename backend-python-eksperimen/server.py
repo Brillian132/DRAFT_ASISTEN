@@ -28,14 +28,16 @@ import asisten
 from asisten import (
     ngomong, dengerin, buka_aplikasi, tutup_aplikasi, putar_youtube,
     tanya_ai, cari_file, cleanup_laptop, ringkas_dokumen, kirim_file,
-    tutup_tab_opera, buka_tab_opera, tutup_semua_tab_opera,
+    tutup_tab_brave, buka_tab_brave, tutup_semua_tab_brave,
     atur_volume, mute_volume, atur_kecerahan,
     analisis_market, lihat_layar,
 )
 import lirik
+import wa   # gerbang WhatsApp (WAHA)
+import jendela   # kontrol jendela aplikasi
 import dokumen   # pencarian dokumen: nama file di seluruh D: dan folder pribadi
 
-BUILD_ID = "2026-11-05-dokumen"
+BUILD_ID = "2026-11-26-brave"
 PORT = 8008
 
 app = Flask(__name__)
@@ -304,12 +306,38 @@ def _perintah_dokumen(p, suara):
     return True
 
 
+# ---------- perintah kontrol jendela: minimize / maksimalkan / tampilkan ----------
+def _perintah_jendela(p, suara):
+    """Tangani 'minimize brave', 'maksimalkan brave', 'tampilkan brave'. True kalau sudah ditangani.
+    'buka brave' sengaja TIDAK ditangani di sini: itu diurus buka_aplikasi() (munculkan jendela yang sudah ada)."""
+    if any(k in p for k in ("volume", "suara", "kecerahan", "brightness", "layar")) or "tab" in p.split():
+        return False
+    app = jendela.kenali_app(p)
+    aksi = jendela.kenali_aksi(p)
+    if not app or not aksi:
+        return False
+    nama = jendela.nama_tampil(app)
+    if not jendela.sedang_jalan(app):
+        ngomong(f"{nama} belum terbuka. Katakan buka {nama.lower()} kalau mau membukanya.")
+        return True
+    if aksi == "minimize":
+        n = jendela.minimize_app(app)
+        ngomong(f"{nama} diminimize." if n else f"{nama} sudah dalam keadaan minimize.")
+    elif aksi == "maximize":
+        jendela.maksimalkan_app(app)
+        ngomong(f"{nama} dimaksimalkan.")
+    else:
+        jendela.tampilkan_app(app)
+        ngomong(f"{nama} ditampilkan.")
+    return True
+
+
 def proses_perintah(perintah, suara=False):
     ucapan = []
     asisten.set_pendengar(ucapan.append)
     asisten.reset_stop()
     try:
-        p = perintah.lower().strip()
+        p = asisten.ke_brave(perintah.lower().strip())   # 'chrome' / 'opera' diarahkan ke Brave
         
         if _perintah_dokumen(p, suara):
             pass
@@ -324,23 +352,25 @@ def proses_perintah(perintah, suara=False):
             pertanyaan = p.replace("lihat layar", "").replace("baca layar", "").strip()
             lihat_layar(pertanyaan)
             
+        elif _perintah_jendela(p, suara):
+            pass
         elif "buka tab" in p:
             url = p.replace("buka tab ", "").strip()
-            buka_tab_opera(url)
+            buka_tab_brave(url)
             
         elif "tutup semua tab" in p:
             nama = p.replace("tutup semua tab ", "").replace(" tab", "").strip()
             if not nama:
                 ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup semua tab youtube.")
             else:
-                tutup_semua_tab_opera(nama)
+                tutup_semua_tab_brave(nama)
                     
         elif "tutup tab" in p:
             nama = p.replace("tutup tab ", "").replace(" tab", "").strip()
             if not nama:
                 ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup tab youtube.")
             else:
-                tutup_tab_opera(nama)
+                tutup_tab_brave(nama)
                     
         elif "volume" in p or "suara" in p:
             angka_match = re.search(r'\d+', p)
@@ -426,6 +456,20 @@ def dokumen_buka():
 @app.get("/dokumen/status")
 def dokumen_status():
     return jsonify(dokumen.status_indeks())
+
+# ---------- gerbang WhatsApp (WAHA): kirim notifikasi dari pill ----------
+def _wa_ui(teks):
+    try:
+        kirim_kejadian("kartu", {"nada": "ok", "teks": teks})   # tampil di pill; hanya ada kalau antrean kejadian terpasang
+    except NameError:
+        print(f"[wa] {teks}", flush=True)
+
+@app.post("/wa/kirim")
+def wa_kirim():
+    if not wa.token_lokal_valid(request.headers.get("X-Pillow-Token", "")):
+        return jsonify(ok=False), 403
+    teks = str((request.get_json(silent=True) or {}).get("teks") or "")[:500]
+    return jsonify(ok=bool(teks) and wa.kirim(teks))
 
 @app.get("/lirik")
 def ambil_lirik():
@@ -583,6 +627,7 @@ def handle_connect():
 
 if __name__ == "__main__":
     print(f"[server] build {BUILD_ID} di http://127.0.0.1:{PORT}", flush=True)
+    wa.mulai(lambda n: asisten._rahasia(n), ke_ui=_wa_ui)   # gerbang WhatsApp
     dokumen.mulai_indeks()   # pindai nama file di latar belakang
     socketio.run(
         app,

@@ -11,6 +11,7 @@ import difflib
 import re
 import io
 import base64
+import subprocess
 import sounddevice as sd
 import numpy as np
 import speech_recognition as sr
@@ -21,6 +22,7 @@ import webbrowser
 import pyautogui
 import requests
 import mss
+import jendela   # kontrol jendela aplikasi (minimize, munculkan yang sudah terbuka)
 from PIL import Image
 
 # Library untuk Volume & Kecerahan
@@ -95,6 +97,58 @@ def _get_client():
             raise RuntimeError("GROQ_API_KEY belum diisi")
         _client = Groq(api_key=API_KEY_GROQ)
     return _client
+
+# --- BRAVE ---
+PORT_DEBUG = 9222
+CDP = f"http://localhost:{PORT_DEBUG}"
+# Brave (berbasis Chromium 136+) mengabaikan --remote-debugging-port kalau memakai profil bawaan.
+# Karena itu Brave dibuka dengan profil khusus asisten, supaya fitur buka/tutup tab bisa jalan.
+# Set ke False kalau mau profil biasa (bookmark & login tetap), tapi fitur tab tidak akan bekerja.
+BRAVE_PROFIL_KHUSUS = True
+
+def _path_brave():
+    kandidat = [
+        os.path.join(os.environ.get("PROGRAMFILES", r"C:\Program Files"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+    ]
+    for p in kandidat:
+        if p and os.path.exists(p):
+            return p
+    return None
+
+def _profil_brave():
+    folder = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "PillowIsland", "brave-profil")
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+def jalankan_brave(url=None):
+    """Jalankan Brave dengan port debugging. Kalau Brave (profil yang sama) sudah jalan, url dibuka di tab baru."""
+    path = _path_brave()
+    if not path:
+        return False
+    args = [path, f"--remote-debugging-port={PORT_DEBUG}"]
+    if BRAVE_PROFIL_KHUSUS:
+        args.append(f"--user-data-dir={_profil_brave()}")
+    if url:
+        args.append(url)
+    subprocess.Popen(args, close_fds=True, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+    return True
+
+def _tunggu_cdp(detik=8):
+    batas = time.time() + detik
+    while time.time() < batas:
+        try:
+            if requests.get(f"{CDP}/json", timeout=1).status_code == 200:
+                return True
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(0.5)
+    return False
+
+def ke_brave(teks):
+    """Ucapan/ketikan 'chrome' atau 'opera' diarahkan ke Brave."""
+    return re.sub(r"\b(?:google\s+)?chrome\b|\bopera(?:\s+gx)?\b", "brave", teks)
 
 # --- TTS ---
 _pendengar = None
@@ -236,6 +290,9 @@ def koreksi_kata_asing(teks):
         "bitcoin": ["btc", "bit coin", "bitkoin"],
         "ethereum": ["eth", "eterium"],
         "gold": ["emas", "gol"],
+        "brave": ["breiv", "breif", "brev", "brep", "bref", "breve", "brave"],
+        "chrome": ["krom", "krome", "kroum", "kroom", "crome", "chrom", "khrom"],
+        "minimize": ["minimais", "minimaiz", "minimise", "minimaise", "minimais"],
         "pillow": ["pilo", "pilou", "pilow", "pilo", "pilow", "pilow"],
     }
     
@@ -331,11 +388,12 @@ def dengerin(durasi=5, ambang=None):
             
         text = text.lower().strip(" .,!?;:")
         text = koreksi_kata_asing(text)
+        text = ke_brave(text)
         # Bersihkan kata "hai" yang berulang (gema)
         text = re.sub(r'\b(hai\s+)+', 'hai ', text).strip()
         print(f"Kamu (Suara setelah koreksi): {text}", flush=True)
         
-        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor"]
+        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "minimize", "minimalkan", "kecilkan", "sembunyikan", "maksimalkan", "munculkan", "kembalikan", "brave", "chrome", "opera", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor"]
         if len(text) < 3 or not any(k in text for k in kata_perintah):
             print("[Bukan perintah / obrolan sampah. Diabaikan agar API tidak boros]", flush=True)
             return ""
@@ -515,22 +573,21 @@ def atur_kecerahan(perubahan):
 
 # --- FUNGSI BUKA APLIKASI ---
 def buka_aplikasi(nama_app):
-    aplikasi_dikenal = ["chrome", "opera", "notepad", "word", "excel", "powerpoint", "discord", "steam", "spotify"]
+    aplikasi_dikenal = ["brave", "notepad", "word", "excel", "powerpoint", "discord", "steam", "spotify"]
     is_aplikasi = any(app in nama_app.lower() for app in aplikasi_dikenal)
     
     if is_aplikasi:
+        # aplikasi yang sudah berjalan: munculkan jendelanya, jangan buka yang baru
+        if jendela.tampilkan_bila_sudah_jalan(nama_app):
+            ngomong(f"{jendela.nama_tampil(jendela.kenali_app(nama_app))} sudah terbuka, aku tampilkan lagi.")
+            return
         ngomong(f"Oke, aku coba buka {nama_app}...")
         
-        if "chrome" in nama_app:
-            os.startfile("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe")
+        if "brave" in nama_app:
+            if not jalankan_brave():
+                ngomong("Maaf, Brave tidak ditemukan.")
         elif "notepad" in nama_app:
             os.system("notepad")
-        elif "opera" in nama_app:
-            path_opera = os.path.expanduser("~\\AppData\\Local\\Programs\\Opera GX\\opera.exe")
-            if os.path.exists(path_opera):
-                os.system(f'start "" "{path_opera}" --remote-debugging-port=9222')
-            else:
-                ngomong("Maaf, Opera GX tidak ditemukan.")
         elif "word" in nama_app:
             path_word_1 = r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE"
             path_word_2 = r"C:\Program Files (x86)\Microsoft Office\root\Office16\WINWORD.EXE"
@@ -569,16 +626,14 @@ def buka_aplikasi(nama_app):
             else:
                 ngomong("Maaf, Steam tidak ditemukan.")
     else:
-        buka_tab_opera(nama_app)
+        buka_tab_brave(nama_app)
 
 def tutup_aplikasi(nama_app):
     ngomong(f"Oke, aku coba tutup {nama_app}...")
-    if "chrome" in nama_app:
-        os.system("taskkill /F /IM chrome.exe")
+    if "brave" in nama_app:
+        os.system("taskkill /F /IM brave.exe")
     elif "notepad" in nama_app:
         os.system("taskkill /F /IM notepad.exe")
-    elif "opera" in nama_app:
-        os.system("taskkill /F /IM opera.exe")
     elif "word" in nama_app:
         os.system("taskkill /F /IM WINWORD.EXE")
     elif "excel" in nama_app:
@@ -594,13 +649,13 @@ def tutup_aplikasi(nama_app):
     else:
         ngomong(f"Maaf, aku belum tau cara tutup {nama_app}.")
 
-# --- FITUR TUTUP TAB OPERA ---
-def tutup_tab_opera(nama_tab):
-    ngomong(f"Oke, aku coba cari tab {nama_tab} di Opera...")
+# --- FITUR TUTUP TAB BRAVE ---
+def tutup_tab_brave(nama_tab):
+    ngomong(f"Oke, aku coba cari tab {nama_tab} di Brave...")
     try:
-        response = requests.get("http://localhost:9222/json", timeout=3)
+        response = requests.get(f"{CDP}/json", timeout=3)
         if response.status_code != 200:
-            ngomong("Gagal terhubung ke Opera. Pastikan Opera dibuka oleh asisten.")
+            ngomong("Gagal terhubung ke Brave. Pastikan Brave dibuka oleh asisten.")
             return
 
         tabs = response.json()
@@ -617,17 +672,17 @@ def tutup_tab_opera(nama_tab):
             return
 
         for tab_id in tabs_ditemukan:
-            requests.get(f"http://localhost:9222/json/close/{tab_id}")
+            requests.get(f"{CDP}/json/close/{tab_id}", timeout=3)
         
         ngomong(f"Berhasil menutup {len(tabs_ditemukan)} tab {nama_tab}.")
             
     except requests.exceptions.ConnectionError:
-        ngomong("Opera tidak terhubung ke port debugging. Tolong buka Opera lewat asisten ya.")
+        ngomong("Brave tidak terhubung ke port debugging. Tolong buka Brave lewat asisten ya.")
     except Exception as e:
         ngomong("Terjadi error saat mencoba menutup tab.")
         print(f"[Tutup Tab Error] {e}", flush=True)
 
-# --- FUNGSI BUKA TAB OPERA ---
+# --- FUNGSI BUKA TAB BRAVE ---
 def _bersihkan_url_untuk_suara(url):
     url = url.replace("https://", "").replace("http://", "")
     url = url.replace("www.", "")
@@ -635,7 +690,7 @@ def _bersihkan_url_untuk_suara(url):
         url = url[:-1]
     return url
 
-def buka_tab_opera(url):
+def buka_tab_brave(url):
     if "." not in url:
         url = f"{url}.com"
     
@@ -646,29 +701,28 @@ def buka_tab_opera(url):
         
     ngomong(f"Oke, aku buka tab baru untuk {url_suara}...")
     try:
-        requests.get("http://localhost:9222/json", timeout=2)
-        requests.put(f"http://localhost:9222/json/new?{url}")
+        requests.get(f"{CDP}/json", timeout=2)
+        requests.put(f"{CDP}/json/new?{url}", timeout=3)
         ngomong(f"Tab {url_suara} berhasil dibuka.")
     except requests.exceptions.ConnectionError:
-        ngomong("Opera belum terbuka dengan port debugging. Aku buka Opera dulu ya.")
-        buka_aplikasi("opera")
-        time.sleep(3)
-        try:
-            requests.put(f"http://localhost:9222/json/new?{url}")
+        ngomong("Brave belum terbuka dengan port debugging. Aku buka Brave dulu ya.")
+        # url langsung ikut dibuka saat Brave dijalankan
+        if jalankan_brave(url):
+            _tunggu_cdp()
             ngomong(f"Tab {url_suara} berhasil dibuka.")
-        except:
-            ngomong("Gagal membuka tab baru.")
+        else:
+            ngomong("Maaf, Brave tidak ditemukan.")
     except Exception as e:
         ngomong("Gagal membuka tab baru.")
         print(f"[Buka Tab Error] {e}", flush=True)
 
 # --- FITUR TUTUP SEMUA TAB YANG COCOK ---
-def tutup_semua_tab_opera(nama_tab):
-    ngomong(f"Oke, aku cari semua tab {nama_tab} di Opera...")
+def tutup_semua_tab_brave(nama_tab):
+    ngomong(f"Oke, aku cari semua tab {nama_tab} di Brave...")
     try:
-        response = requests.get("http://localhost:9222/json", timeout=3)
+        response = requests.get(f"{CDP}/json", timeout=3)
         if response.status_code != 200:
-            ngomong("Gagal terhubung ke Opera. Pastikan Opera dibuka oleh asisten.")
+            ngomong("Gagal terhubung ke Brave. Pastikan Brave dibuka oleh asisten.")
             return
 
         tabs = response.json()
@@ -685,12 +739,12 @@ def tutup_semua_tab_opera(nama_tab):
             return
 
         for tab_id in tabs_ditemukan:
-            requests.get(f"http://localhost:9222/json/close/{tab_id}")
+            requests.get(f"{CDP}/json/close/{tab_id}", timeout=3)
         
         ngomong(f"Berhasil menutup {len(tabs_ditemukan)} tab {nama_tab}.")
             
     except requests.exceptions.ConnectionError:
-        ngomong("Opera tidak terhubung ke port debugging. Tolong buka Opera lewat asisten ya.")
+        ngomong("Brave tidak terhubung ke port debugging. Tolong buka Brave lewat asisten ya.")
     except Exception as e:
         ngomong("Terjadi error saat mencoba menutup tab.")
         print(f"[Tutup Semua Tab Error] {e}", flush=True)
@@ -704,10 +758,7 @@ def putar_youtube(judul, tipe="video"):
     else:
         url = f"https://www.youtube.com/results?search_query={judul_url}&sp=EgIQAQ%253D%253D"
 
-    path_opera = os.path.expanduser("~\\AppData\\Local\\Programs\\Opera GX\\opera.exe")
-
-    if os.path.exists(path_opera):
-        os.system(f'start "" "{path_opera}" "{url}"')
+    if jalankan_brave(url):
         ngomong("Menunggu halaman YouTube siap...")
         time.sleep(6)
 
@@ -717,7 +768,7 @@ def putar_youtube(judul, tipe="video"):
         pyautogui.moveTo(x_asli, y_asli)
         print("[Auto-Play] Selesai!", flush=True)
     else:
-        ngomong("Opera GX tidak ditemukan, aku buka pakai browser default ya.")
+        ngomong("Brave tidak ditemukan, aku buka pakai browser default ya.")
         webbrowser.open(url)
 
 def cari_file(nama_file):
@@ -840,17 +891,17 @@ def main():
                 lihat_layar(pertanyaan)
             elif "buka tab" in perintah:
                 url = perintah.replace("buka tab ", "").strip()
-                buka_tab_opera(url)
+                buka_tab_brave(url)
             elif "tutup semua tab" in perintah:
                 nama = perintah.replace("tutup semua tab ", "").replace(" tab", "").strip()
                 if nama:
-                    tutup_semua_tab_opera(nama)
+                    tutup_semua_tab_brave(nama)
                 else:
                     ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup semua tab youtube.")
             elif "tutup tab" in perintah:
                 nama = perintah.replace("tutup tab ", "").replace(" tab", "").strip()
                 if nama:
-                    tutup_tab_opera(nama)
+                    tutup_tab_brave(nama)
                 else:
                     ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup tab youtube.")
             elif "volume" in perintah or "suara" in perintah:

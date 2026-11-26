@@ -362,7 +362,8 @@ def cari(query, maks=3, st=None):
         baru = 0.4 / (1 + umur / 60)
         skor = 2.0 * dasar + 2.0 * cakupan + 0.8 * rapat + urutan + baru
         nilai.append((skor, i))
-    nilai.sort(reverse=True)
+    # skor sama: utamakan folder yang lebih dangkal, lalu yang lebih baru diubah
+    nilai.sort(key=lambda t: (-round(t[0], 2), st.daftar[t[1]][0].count(os.sep), -st.daftar[t[1]][1]))
 
     hasil, lihat = [], set()
     for skor, i in nilai:
