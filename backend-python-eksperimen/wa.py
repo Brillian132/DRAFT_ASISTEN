@@ -1,5 +1,8 @@
 """Gerbang WhatsApp (WAHA) untuk Pillow Island: kirim notifikasi ke pemilik dan terima perintah darinya.
 
+Perintah bawaan (status, kunci, matikan, batal, bantuan) ditangani di sini. Pesan lain dari pemilik diteruskan ke
+pemroses perintah asisten (sama seperti perintah suara), misalnya "buka youtube" atau "volume naik 20".
+
 Rahasia di rahasia.json: WA_API_KEY (kunci WAHA) dan WA_HMAC_KEY (kunci tanda tangan webhook). Tanpa keduanya fitur mati.
 Di dashboard WAHA, webhook: http://host.docker.internal:8009/wa/webhook , event: message , HMAC key = WA_HMAC_KEY.
 """
@@ -26,6 +29,14 @@ KONFIRMASI_DETIK = 60
 BATAS_KIRIM = (20, 600)  # shortcut: maks 20 pesan per 10 menit, naikkan kalau terlalu ketat
 MAKS_SALAH_PASANG = 5
 BANTUAN = "Perintah: status, kunci, matikan, batal, bantuan"
+BANTUAN_ASISTEN = ("Selain itu, ketik perintah seperti ke asisten suara. Contoh: buka youtube, "
+                   "putar lofi, volume naik 20, tutup tab youtube, lihat layar, cari dokumen laporan.")
+
+
+class _Teruskan:
+    """Penanda dari _proses(): teks ini diteruskan ke pemroses perintah asisten, di luar kunci gerbang."""
+    def __init__(self, teks):
+        self.teks = teks
 
 
 def _file_pemilik():
@@ -56,7 +67,7 @@ def _jalankan(nama):
 
 class Gerbang:
     def __init__(self, api_key, hmac_key, file_pemilik=None, post=requests.post, jalankan=_jalankan,
-                 ke_ui=print, sekarang=time.time):
+                 ke_ui=print, sekarang=time.time, perintah=None, izin_menunggu=None):
         self.api_key, self.hmac_key = api_key, hmac_key
         self.file, self.post, self.jalankan, self.ke_ui, self.sekarang = file_pemilik or _file_pemilik(), post, jalankan, ke_ui, sekarang
         self.pemilik = self._muat()
@@ -67,6 +78,8 @@ class Gerbang:
         self.sudah = deque(maxlen=200)
         self.log_kirim = deque()
         self.kunci = threading.Lock()
+        self.perintah = perintah                              # perintah(teks) -> balasan atau None
+        self.izin_menunggu = izin_menunggu or (lambda: False)  # True kalau asisten sedang menunggu jawaban izin lewat WA
 
     def _muat(self):
         try:
@@ -127,7 +140,7 @@ class Gerbang:
                 if len(kata) == 2 and kata[0] == "pasang" and hmac.compare_digest(kata[1].encode(), self.kode_pasang.encode()):
                     self.pemilik = pengirim
                     self._simpan()
-                    return "Terpasang. " + BANTUAN
+                    return "Terpasang. " + BANTUAN + (". " + BANTUAN_ASISTEN if self.perintah else "")
                 if kata and kata[0] == "pasang":
                     self.salah += 1
                     if self.salah >= MAKS_SALAH_PASANG:
@@ -135,6 +148,10 @@ class Gerbang:
                 return None
             if pengirim != self.pemilik:
                 return None
+
+            # asisten sedang menanyakan izin lewat WA: jawaban (ya / tidak / selalu / batal) untuk asisten
+            if self.perintah and self.izin_menunggu():
+                return _Teruskan(teks)
 
             perintah = kata[0]
             if perintah == "ya" and len(kata) == 2 and self.tertunda:
@@ -159,11 +176,18 @@ class Gerbang:
                 return "Layar dikunci."
             if perintah == "status":
                 return _status()
+            if perintah == "bantuan":
+                return BANTUAN + (". " + BANTUAN_ASISTEN if self.perintah else "")
+            if self.perintah:
+                return _Teruskan(teks)
             return "Perintah tidak dikenal. " + BANTUAN
 
     def tangani(self, env):
         try:
             balasan = self._proses(env)
+            if isinstance(balasan, _Teruskan):
+                # dijalankan di luar self.kunci: perintah bisa lama dan pesan berikutnya (jawaban izin) harus tetap masuk
+                balasan = self.perintah(balasan.teks)
             if balasan:
                 self.kirim(balasan)
         except Exception:
@@ -204,14 +228,15 @@ def buat_handler(g):
 _g = None
 
 
-def mulai(rahasia, ke_ui=print, host=HOST, port=PORT):
-    """Dipanggil sekali dari server.py. rahasia(nama) -> nilai. Mengembalikan True kalau gerbang berjalan."""
+def mulai(rahasia, ke_ui=print, host=HOST, port=PORT, perintah=None, izin_menunggu=None):
+    """Dipanggil sekali dari server.py. rahasia(nama) -> nilai. Mengembalikan True kalau gerbang berjalan.
+    perintah(teks) -> balasan: pemroses perintah asisten untuk pesan selain perintah bawaan."""
     global _g
     api, kunci = rahasia("WA_API_KEY"), rahasia("WA_HMAC_KEY")
     if not api or not kunci:
         print("[wa] WA_API_KEY / WA_HMAC_KEY belum diisi di rahasia.json, fitur WhatsApp mati.", flush=True)
         return False
-    g = Gerbang(api, kunci, ke_ui=ke_ui)
+    g = Gerbang(api, kunci, ke_ui=ke_ui, perintah=perintah, izin_menunggu=izin_menunggu)
     try:
         srv = ThreadingHTTPServer((host, port), buat_handler(g))
     except OSError as e:

@@ -280,6 +280,19 @@ function announce() {
   armCollapse(4000);
 }
 
+// Info lagu untuk asisten Python ("lagu apa ini", "jeda", "lagu berikutnya"):
+// dikirim ke server saat berubah, ditambah detak tiap 5 detik supaya server tahu pill masih berjalan.
+let laporMediaIsi = "", laporMediaWaktu = 0;
+function laporMediaKeServer(m) {
+  const isi = JSON.stringify({ aktif: !!m.active, judul: m.title || "", artis: m.artist || "", diputar: !!m.playing });
+  const now = Date.now();
+  if (isi === laporMediaIsi && now - laporMediaWaktu < 5000) return;
+  laporMediaIsi = isi; laporMediaWaktu = now;
+  try {
+    pyFetch(`${PY_BASE}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: isi }).catch(() => {});
+  } catch (e) {}
+}
+
 async function pollMedia() {
   try {
     const m = await invoke("get_media");
@@ -298,6 +311,7 @@ async function pollMedia() {
       resetLirik();
       perbaruiTampilanLirik(true);
     }
+    laporMediaKeServer(m);
     const key = m.title + "|" + m.artist;
     if (key !== lastKey) {
       lastKey = key;

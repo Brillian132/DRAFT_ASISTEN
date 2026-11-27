@@ -36,8 +36,9 @@ import lirik
 import wa   # gerbang WhatsApp (WAHA)
 import jendela   # kontrol jendela aplikasi
 import dokumen   # pencarian dokumen: nama file di seluruh D: dan folder pribadi
+import musik     # kontrol musik: jeda, lanjut, lagu berikutnya, lagu apa ini
 
-BUILD_ID = "2026-11-26-brave"
+BUILD_ID = "2026-11-27-musik"
 PORT = 8008
 
 app = Flask(__name__)
@@ -51,6 +52,8 @@ AMBANG_TIDUR = 800
 MULAI_BANGUN = False
 AMBANG_BANGUN = 500
 BATAS_IZIN_DETIK = 30
+BATAS_IZIN_WA_DETIK = 90     # lewat WA butuh waktu lebih lama untuk membaca dan membalas
+SUARA_WA = False             # True = perintah dari WhatsApp juga diucapkan lewat speaker laptop
 
 KATA_BANGUN = ("mulai", "bangun", "halo", "asisten", "start", "wake up")
 KATA_TIDUR = ("tidur", "istirahat", "sleep", "dibur", "tidor", "tiduh", "tidu", "tiur")
@@ -178,7 +181,7 @@ def _ucapkan_tanpa_catat(teks):
     finally:
         asisten.set_pendengar(pend)
 
-def minta_izin(kunci, teks, suara=False):
+def minta_izin(kunci, teks, suara=False, wa_=False):
     if kunci in _selalu:
         return True
 
@@ -187,6 +190,7 @@ def minta_izin(kunci, teks, suara=False):
         "kunci": kunci,
         "teks": teks,
         "suara": suara,
+        "wa": wa_,
         "event": threading.Event(),
         "jawab": None,
     }
@@ -194,10 +198,14 @@ def minta_izin(kunci, teks, suara=False):
     update_ui("izin", teks, nada="warn")
     if suara:
         _ucapkan_tanpa_catat(f"{teks}. Katakan ya atau tidak.")
+    batas = BATAS_IZIN_DETIK
+    if wa_:
+        batas = BATAS_IZIN_WA_DETIK
+        wa.kirim(f"Izin dibutuhkan: {teks}. Balas ya, tidak, atau selalu (dalam {batas} detik).")
 
     try:
         mulai = time.time()
-        while time.time() - mulai < BATAS_IZIN_DETIK and not req["event"].is_set():
+        while time.time() - mulai < batas and not req["event"].is_set():
             if suara:
                 p = dengerin(3, ambang=AMBANG_BANGUN)
                 j = _jawaban_suara(p) if p else None
@@ -332,14 +340,17 @@ def _perintah_jendela(p, suara):
     return True
 
 
-def proses_perintah(perintah, suara=False):
+def proses_perintah(perintah, suara=False, wa_=False):
     ucapan = []
     asisten.set_pendengar(ucapan.append)
     asisten.reset_stop()
     try:
         p = asisten.ke_brave(perintah.lower().strip())   # 'chrome' / 'opera' diarahkan ke Brave
         
-        if _perintah_dokumen(p, suara):
+        aksi_musik = musik.kenali(p)
+        if aksi_musik:
+            ngomong(musik.jalankan(aksi_musik))
+        elif _perintah_dokumen(p, suara):
             pass
         elif "pillow" in p and ("hi" in p or "hai" in p or "halo" in p):
             pertanyaan = p.replace("hi pillow", "").replace("hai pillow", "").replace("halo pillow", "").strip()
@@ -400,7 +411,7 @@ def proses_perintah(perintah, suara=False):
             buka_aplikasi(p.replace("buka ", "").replace(" aplikasi", ""))
         elif "tutup" in p:
             nama = p.replace("tutup ", "").replace(" aplikasi", "")
-            if minta_izin("tutup", f"Tutup aplikasi: {nama}", suara):
+            if minta_izin("tutup", f"Tutup aplikasi: {nama}", suara, wa_):
                 tutup_aplikasi(nama)
             else:
                 ngomong("Oke, dibatalkan.")
@@ -414,7 +425,7 @@ def proses_perintah(perintah, suara=False):
         elif "cari file" in p:
             cari_file(p.replace("cari file ", ""))
         elif "bersihkan" in p or "cleanup" in p:
-            if minta_izin("bersihkan", "Hapus file sementara Windows", suara):
+            if minta_izin("bersihkan", "Hapus file sementara Windows", suara, wa_):
                 cleanup_laptop()
             else:
                 ngomong("Oke, dibatalkan.")
@@ -422,7 +433,7 @@ def proses_perintah(perintah, suara=False):
             ringkas_dokumen(p.replace("ringkas dokumen ", ""))
         elif "kirim file" in p:
             nama = p.replace("kirim file ", "")
-            if minta_izin("kirim_file", f"Kirim file lewat email: {nama}", suara):
+            if minta_izin("kirim_file", f"Kirim file lewat email: {nama}", suara, wa_):
                 kirim_file(nama)
             else:
                 ngomong("Oke, dibatalkan.")
@@ -464,12 +475,55 @@ def _wa_ui(teks):
     except NameError:
         print(f"[wa] {teks}", flush=True)
 
+def _izin_wa_menunggu():
+    req = _izin_aktif["req"]
+    return bool(req and req.get("wa"))
+
+
+def perintah_dari_wa(teks):
+    """Pesan WhatsApp dari pemilik -> perintah asisten (sama seperti suara). Mengembalikan teks balasan."""
+    req = _izin_aktif["req"]
+    if req and req.get("wa"):
+        jawab = _jawaban_suara(teks) or ("tolak" if teks.lower().strip() == "batal" else None)
+        if not jawab:
+            return "Asisten menunggu jawaban izin. Balas ya, tidak, atau selalu."
+        req["jawab"] = jawab
+        req["event"].set()
+        return None   # hasil perintahnya dikirim oleh pemanggil minta_izin
+
+    if not _kunci.acquire(blocking=False):
+        return "Asisten masih mengerjakan perintah lain. Coba lagi sebentar."
+    try:
+        print(f"[wa] perintah: {teks}", flush=True)
+        update_ui("memproses", f"WA: {teks}")
+        asisten.set_diam(not SUARA_WA)
+        try:
+            ucapan = proses_perintah(teks, suara=False, wa_=True)
+        finally:
+            asisten.set_diam(False)
+        return _lapor_hasil(ucapan)
+    except Exception as e:
+        traceback.print_exc()
+        update_ui("error", str(e), nada="bad")
+        return f"Gagal menjalankan perintah: {e}"
+    finally:
+        _kunci.release()
+
+
 @app.post("/wa/kirim")
 def wa_kirim():
     if not wa.token_lokal_valid(request.headers.get("X-Pillow-Token", "")):
         return jsonify(ok=False), 403
     teks = str((request.get_json(silent=True) or {}).get("teks") or "")[:500]
     return jsonify(ok=bool(teks) and wa.kirim(teks))
+
+@app.post("/media")
+def media_dari_pill():
+    # pill mengirim lagu yang sedang diputar, dipakai perintah "lagu apa ini", "jeda", "lagu berikutnya"
+    if not wa.token_lokal_valid(request.headers.get("X-Pillow-Token", "")):
+        return jsonify(ok=False), 403
+    musik.lapor(request.get_json(silent=True) or {})
+    return jsonify(ok=True)
 
 @app.get("/lirik")
 def ambil_lirik():
@@ -627,7 +681,8 @@ def handle_connect():
 
 if __name__ == "__main__":
     print(f"[server] build {BUILD_ID} di http://127.0.0.1:{PORT}", flush=True)
-    wa.mulai(lambda n: asisten._rahasia(n), ke_ui=_wa_ui)   # gerbang WhatsApp
+    wa.mulai(lambda n: asisten._rahasia(n), ke_ui=_wa_ui,   # gerbang WhatsApp
+             perintah=perintah_dari_wa, izin_menunggu=_izin_wa_menunggu)
     dokumen.mulai_indeks()   # pindai nama file di latar belakang
     socketio.run(
         app,

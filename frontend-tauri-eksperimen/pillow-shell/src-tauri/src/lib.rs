@@ -43,21 +43,22 @@ fn launch_app(name: String) -> Result<(), String> {
     let pf = env("ProgramFiles");
     let pf86 = env("ProgramFiles(x86)");
 
+    // Brave dibuka dengan port debugging + profil yang sama dengan asisten Python (asisten.py),
+    // supaya perintah buka/tutup tab tetap bekerja di jendela Brave yang sama.
+    let mut args: Vec<String> = Vec::new();
     let candidates: Vec<String> = match name.as_str() {
-        "chrome" => vec![
-            format!(r"{pf}\Google\Chrome\Application\chrome.exe"),
-            format!(r"{pf86}\Google\Chrome\Application\chrome.exe"),
-            format!(r"{local}\Google\Chrome\Application\chrome.exe"),
-        ],
+        "brave" => {
+            args.push("--remote-debugging-port=9222".into());
+            args.push(format!(r"--user-data-dir={local}\PillowIsland\brave-profil"));
+            vec![
+                format!(r"{pf}\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                format!(r"{pf86}\BraveSoftware\Brave-Browser\Application\brave.exe"),
+                format!(r"{local}\BraveSoftware\Brave-Browser\Application\brave.exe"),
+            ]
+        }
         "vscode" => vec![
             format!(r"{local}\Programs\Microsoft VS Code\Code.exe"),
             format!(r"{pf}\Microsoft VS Code\Code.exe"),
-        ],
-        "opera" => vec![
-            format!(r"{local}\Programs\Opera GX\opera.exe"),
-            format!(r"{local}\Programs\Opera\opera.exe"),
-            format!(r"{pf}\Opera GX\opera.exe"),
-            format!(r"{pf}\Opera\opera.exe"),
         ],
         _ => return Err("aplikasi tidak dikenal".into()),
     };
@@ -65,6 +66,7 @@ fn launch_app(name: String) -> Result<(), String> {
     for path in &candidates {
         if std::path::Path::new(path).exists() {
             return Command::new(path)
+                .args(&args)
                 .spawn()
                 .map(|_| ())
                 .map_err(|e| e.to_string());

@@ -1,0 +1,144 @@
+9614277 2026-11-26 16:13:57 +0700 Ganti Opera dan Chrome dengan Brave
+
+ backend-python-eksperimen/jendela.py               |  16 [32m+[m[31m-[m
+ frontend-tauri-eksperimen/pillow-shell/src/lib.rs  | 168 [32m+++++++++++++++++++++[m
+ frontend-tauri-eksperimen/pillow-shell/src/main.js |  11 [32m+[m[31m-[m
+ 3 files changed, 179 insertions(+), 16 deletions(-)
+173fd09 2026-11-26 15:57:59 +0700 kode asisten
+
+ backend-python-eksperimen/asisten.py               |  145 [32m+[m[31m-[m
+ backend-python-eksperimen/asisten.py.bak-jendela   |  913 [32m+++++++++++[m
+ backend-python-eksperimen/dokumen.py               |    3 [32m+[m[31m-[m
+ backend-python-eksperimen/jendela.py               |  235 [32m+++[m
+ backend-python-eksperimen/server.py                |   57 [32m+[m[31m-[m
+ .../server.py.20261126-123718.manual               |  623 [32m++++++++[m
+ backend-python-eksperimen/server.py.bak-jendela    |  594 [32m++++++++[m
+ backend-python-eksperimen/server.py.bak-wa         |  623 [32m++++++++[m
+ backend-python-eksperimen/terapkan_jendela.py      |  166 [32m++[m
+ backend-python-eksperimen/terapkan_wa.py           |  148 [32m++[m
+ backend-python-eksperimen/wa.py                    |  241 [32m+++[m
+ .../pillow-island/src/main.js                      |    7 [32m+[m
+ .../src/main.js.20261126-123718.manual             | 1580 [32m++++++++++++++++++++[m
+ .../pillow-island/src/main.js.bak-wa               | 1580 [32m++++++++++++++++++++[m
+ 14 files changed, 6861 insertions(+), 54 deletions(-)
+2147cf2 2026-11-19 16:59:36 +0700 Upload proyek awal
+
+ .gitignore                                         |    33 [32m+[m
+ backend-python-eksperimen/asisten-server.spec      |    45 [32m+[m
+ backend-python-eksperimen/asisten.py               |   913 [32m+[m
+ backend-python-eksperimen/build.ps1                |    37 [32m+[m
+ backend-python-eksperimen/dokumen.py               |   457 [32m+[m
+ backend-python-eksperimen/lirik.py                 |   189 [32m+[m
+ backend-python-eksperimen/server.py                |   594 [32m+[m
+ backend-python-eksperimen/temp_audio.wav           |   Bin [31m0[m -> [32m441044[m bytes
+ backend-python-eksperimen/terapkan_dokumen.py      |   538 [32m+[m
+ .../tes_build/tes-pyinstaller/Analysis-00.toc      |   927 [32m+[m
+ .../tes_build/tes-pyinstaller/EXE-00.toc           |   110 [32m+[m
+ .../tes_build/tes-pyinstaller/PKG-00.toc           |    88 [32m+[m
+ .../tes_build/tes-pyinstaller/PYZ-00.pyz           |   Bin [31m0[m -> [32m1756782[m bytes
+ .../tes_build/tes-pyinstaller/PYZ-00.toc           |   400 [32m+[m
+ .../tes_build/tes-pyinstaller/base_library.zip     |   Bin [31m0[m -> [32m1425082[m bytes
+ .../tes_build/tes-pyinstaller/tes-pyinstaller.pkg  |   Bin [31m0[m -> [32m8973554[m bytes
+ .../tes-pyinstaller/warn-tes-pyinstaller.txt       |    27 [32m+[m
+ .../tes-pyinstaller/xref-tes-pyinstaller.html      |  8177 [32m++[m
+ .../tes-pyinstaller-onedir/Analysis-00.toc         |   927 [32m+[m
+ .../tes-pyinstaller-onedir/COLLECT-00.toc          |    45 [32m+[m
+ .../tes-pyinstaller-onedir/EXE-00.toc              |    68 [32m+[m
+ .../tes-pyinstaller-onedir/PKG-00.toc              |    46 [32m+[m
+ .../tes-pyinstaller-onedir/PYZ-00.pyz              |   Bin [31m0[m -> [32m1756782[m bytes
+ .../tes-pyinstaller-onedir/PYZ-00.toc              |   400 [32m+[m
+ .../tes-pyinstaller-onedir/base_library.zip        |   Bin [31m0[m -> [32m1425082[m bytes
+ .../tes-pyinstaller-onedir.pkg                     |   Bin [31m0[m -> [32m1780900[m bytes
+ .../warn-tes-pyinstaller-onedir.txt                |    27 [32m+[m
+ .../xref-tes-pyinstaller-onedir.html               |  8175 [32m++[m
+ .../tes-pyinstaller-onedir/_internal/_bz2.pyd      |   Bin [31m0[m -> [32m86240[m bytes
+ .../tes-pyinstaller-onedir/_internal/_decimal.pyd  |   Bin [31m0[m -> [32m326368[m bytes
+ .../tes-pyinstaller-onedir/_internal/_hashlib.pyd  |   Bin [31m0[m -> [32m72928[m bytes
+ .../tes-pyinstaller-onedir/_internal/_lzma.pyd     |   Bin [31m0[m -> [32m171744[m bytes
+ .../tes-pyinstaller-onedir/_internal/_socket.pyd   |   Bin [31m0[m -> [32m88288[m bytes
+ .../tes-pyinstaller-onedir/_internal/_ssl.pyd      |   Bin [31m0[m -> [32m200416[m bytes
+ .../tes-pyinstaller-onedir/_internal/_zstd.pyd     |   Bin [31m0[m -> [32m506592[m bytes
+ .../_internal/base_library.zip                     |   Bin [31m0[m -> [32m1425082[m bytes
+ .../tes-pyinstaller-onedir/_internal/select.pyd    |   Bin [31m0[m -> [32m32992[m bytes
+ .../_internal/unicodedata.pyd                      |   Bin [31m0[m -> [32m753376[m bytes
+ backend-python-eksperimen/tes_pyinstaller.py       |     2 [32m+[m
+ .../asisten-server-test/Analysis-00.toc            |  9625 [32m+++[m
+ .../asisten-server-test/COLLECT-00.toc             |  2734 [32m+[m
+ .../asisten-server-test/EXE-00.toc                 |    87 [32m+[m
+ .../asisten-server-test/PKG-00.toc                 |    65 [32m+[m
+ .../asisten-server-test/PYZ-00.pyz                 |   Bin [31m0[m -> [32m17133850[m bytes
+ .../asisten-server-test/PYZ-00.toc                 |  6223 [32m++[m
+ .../asisten-server-test/asisten-server-test.pkg    |   Bin [31m0[m -> [32m17176754[m bytes
+ .../asisten-server-test/base_library.zip           |   Bin [31m0[m -> [32m1425082[m bytes
+ .../warn-asisten-server-test.txt                   |   469 [32m+[m
+ .../xref-asisten-server-test.html                  | 75852 [32m+++++++++++++++++++[m
+ .../tes_server_spec/asisten-server-test.spec       |    51 [32m+[m
+ .../tes_spec/tes-pyinstaller.spec                  |    38 [32m+[m
+ .../tes_spec_onedir/tes-pyinstaller-onedir.spec    |    44 [32m+[m
+ frontend-tauri-eksperimen/pillow-island/.gitignore |    24 [32m+[m
+ frontend-tauri-eksperimen/pillow-island/README.md  |     7 [32m+[m
+ .../pillow-island/aset-ikon/ikon-1024.png          |   Bin [31m0[m -> [32m68793[m bytes
+ .../pillow-island/aset-ikon/ikon-tanpa-latar.svg   |     1 [32m+[m
+ .../pillow-island/aset-ikon/ikon.svg               |     1 [32m+[m
+ .../pillow-island/aset-ikon/pratinjau-ikon.png     |   Bin [31m0[m -> [32m204651[m bytes
+ .../pillow-island/package-lock.json                |   269 [32m+[m
+ .../pillow-island/package.json                     |    15 [32m+[m
+ .../pillow-island/src-tauri/.gitignore             |     7 [32m+[m
+ .../pillow-island/src-tauri/Cargo.lock             |  5419 [32m++[m
+ .../pillow-island/src-tauri/Cargo.toml             |    49 [32m+[m
+ .../pillow-island/src-tauri/build.rs               |     3 [32m+[m
+ .../src-tauri/capabilities/default.json            |    19 [32m+[m
+ .../pillow-island/src-tauri/icons/128x128.png      |   Bin [31m0[m -> [32m12837[m bytes
+ .../pillow-island/src-tauri/icons/128x128@2x.png   |   Bin [31m0[m -> [32m20385[m bytes
+ .../pillow-island/src-tauri/icons/32x32.png        |   Bin [31m0[m -> [32m7381[m bytes
+ .../pillow-island/src-tauri/icons/icon.icns        |   Bin [31m0[m -> [32m164934[m bytes
+ .../pillow-island/src-tauri/icons/icon.ico         |   Bin [31m0[m -> [32m31225[m bytes
+ .../pillow-island/src-tauri/icons/icon.png         |   Bin [31m0[m -> [32m35982[m bytes
+ .../pillow-island/src-tauri/media.rs               |   102 [32m+[m
+ .../pillow-island/src-tauri/src/lib.rs             |   376 [32m+[m
+ .../pillow-island/src-tauri/src/main.rs            |     6 [32m+[m
+ .../pillow-island/src-tauri/src/media.rs           |   102 [32m+[m
+ .../pillow-island/src-tauri/src/perangkat.rs       |   231 [32m+[m
+ .../pillow-island/src-tauri/tauri.conf.json        |    43 [32m+[m
+ .../pillow-island/src/Dokumen.py                   |   457 [32m+[m
+ .../pillow-island/src/assets/javascript.svg        |     1 [32m+[m
+ .../pillow-island/src/assets/tauri.svg             |     6 [32m+[m
+ .../pillow-island/src/index.html                   |   269 [32m+[m
+ .../pillow-island/src/main.js                      |  1580 [32m+[m
+ .../pillow-island/src/styles.css                   |   831 [32m+[m
+ .../pillow-island/src/terapkan_dokumen.py          |   538 [32m+[m
+ frontend-tauri-eksperimen/pillow-shell/.gitignore  |    24 [32m+[m
+ frontend-tauri-eksperimen/pillow-shell/README.md   |     7 [32m+[m
+ .../pillow-shell/package-lock.json                 |   247 [32m+[m
+ .../pillow-shell/package.json                      |    12 [32m+[m
+ .../pillow-shell/src-tauri/.gitignore              |     7 [32m+[m
+ .../pillow-shell/src-tauri/Cargo.lock              |  5192 [32m++[m
+ .../pillow-shell/src-tauri/Cargo.toml              |    43 [32m+[m
+ .../pillow-shell/src-tauri/build.rs                |     3 [32m+[m
+ .../src-tauri/capabilities/default.json            |    10 [32m+[m
+ .../pillow-shell/src-tauri/icons/128x128.png       |   Bin [31m0[m -> [32m1593[m bytes
+ .../pillow-shell/src-tauri/icons/128x128@2x.png    |   Bin [31m0[m -> [32m2861[m bytes
+ .../pillow-shell/src-tauri/icons/32x32.png         |   Bin [31m0[m -> [32m567[m bytes
+ .../src-tauri/icons/Square107x107Logo.png          |   Bin [31m0[m -> [32m1340[m bytes
+ .../src-tauri/icons/Square142x142Logo.png          |   Bin [31m0[m -> [32m1691[m bytes
+ .../src-tauri/icons/Square150x150Logo.png          |   Bin [31m0[m -> [32m1738[m bytes
+ .../src-tauri/icons/Square284x284Logo.png          |   Bin [31m0[m -> [32m3115[m bytes
+ .../src-tauri/icons/Square30x30Logo.png            |   Bin [31m0[m -> [32m536[m bytes
+ .../src-tauri/icons/Square310x310Logo.png          |   Bin [31m0[m -> [32m3447[m bytes
+ .../src-tauri/icons/Square44x44Logo.png            |   Bin [31m0[m -> [32m777[m bytes
+ .../src-tauri/icons/Square71x71Logo.png            |   Bin [31m0[m -> [32m1020[m bytes
+ .../src-tauri/icons/Square89x89Logo.png            |   Bin [31m0[m -> [32m1181[m bytes
+ .../pillow-shell/src-tauri/icons/StoreLogo.png     |   Bin [31m0[m -> [32m848[m bytes
+ .../pillow-shell/src-tauri/icons/icon.icns         |   Bin [31m0[m -> [32m98451[m bytes
+ .../pillow-shell/src-tauri/icons/icon.ico          |   Bin [31m0[m -> [32m37710[m bytes
+ .../pillow-shell/src-tauri/icons/icon.png          |   Bin [31m0[m -> [32m5664[m bytes
+ .../pillow-shell/src-tauri/src/lib.rs              |   166 [32m+[m
+ .../pillow-shell/src-tauri/src/main.rs             |     6 [32m+[m
+ .../pillow-shell/src-tauri/src/media.rs            |   102 [32m+[m
+ .../pillow-shell/src-tauri/tauri.conf.json         |    41 [32m+[m
+ .../pillow-shell/src/assets/javascript.svg         |     1 [32m+[m
+ .../pillow-shell/src/assets/tauri.svg              |     6 [32m+[m
+ .../pillow-shell/src/index.html                    |    24 [32m+[m
+ frontend-tauri-eksperimen/pillow-shell/src/main.js |    83 [32m+[m
+ .../pillow-shell/src/styles.css                    |   108 [32m+[m
+ 118 files changed, 133851 insertions(+)

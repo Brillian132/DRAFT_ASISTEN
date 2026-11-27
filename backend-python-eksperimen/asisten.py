@@ -165,6 +165,15 @@ def hentikan_suara():
 def reset_stop():
     _stop_suara.clear()
 
+# Mode diam: teks tetap dicatat (untuk balasan WA / tampilan), tapi tidak diucapkan lewat speaker
+_diam = threading.Event()
+
+def set_diam(nyala):
+    if nyala:
+        _diam.set()
+    else:
+        _diam.clear()
+
 _galat_terakhir = None
 
 def ambil_galat():
@@ -221,7 +230,7 @@ def ngomong(teks):
             _pendengar(teks)
         except Exception:
             pass
-    if _stop_suara.is_set():
+    if _stop_suara.is_set() or _diam.is_set():
         return
     with _tts_lock:
         try:
@@ -393,7 +402,7 @@ def dengerin(durasi=5, ambang=None):
         text = re.sub(r'\b(hai\s+)+', 'hai ', text).strip()
         print(f"Kamu (Suara setelah koreksi): {text}", flush=True)
         
-        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "minimize", "minimalkan", "kecilkan", "sembunyikan", "maksimalkan", "munculkan", "kembalikan", "brave", "chrome", "opera", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor"]
+        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "minimize", "minimalkan", "kecilkan", "sembunyikan", "maksimalkan", "munculkan", "kembalikan", "brave", "chrome", "opera", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor", "lagu", "musik", "jeda", "pause", "next", "skip", "lewati", "lanjut", "resume", "diputar"]
         if len(text) < 3 or not any(k in text for k in kata_perintah):
             print("[Bukan perintah / obrolan sampah. Diabaikan agar API tidak boros]", flush=True)
             return ""
