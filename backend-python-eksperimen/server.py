@@ -28,7 +28,7 @@ import asisten
 from asisten import (
     ngomong, dengerin, buka_aplikasi, tutup_aplikasi, putar_youtube,
     tanya_ai, cari_file, cleanup_laptop, ringkas_dokumen, kirim_file,
-    tutup_tab_brave, buka_tab_brave, tutup_semua_tab_brave,
+    buka_tab_brave,
     atur_volume, mute_volume, atur_kecerahan,
     analisis_market, lihat_layar,
 )
@@ -37,8 +37,11 @@ import wa   # gerbang WhatsApp (WAHA)
 import jendela   # kontrol jendela aplikasi
 import dokumen   # pencarian dokumen: nama file di seluruh D: dan folder pribadi
 import musik     # kontrol musik: jeda, lanjut, lagu berikutnya, lagu apa ini
+import obrolan   # mode ngobrol: teman ngobrol + konteks layar
+import video     # fullscreen / kecilkan video di browser
+import tab_brave # tutup tab Brave
 
-BUILD_ID = "2026-11-27-musik"
+BUILD_ID = "2026-11-29-tab-fokus"
 PORT = 8008
 
 app = Flask(__name__)
@@ -57,10 +60,50 @@ SUARA_WA = False             # True = perintah dari WhatsApp juga diucapkan lewa
 
 KATA_BANGUN = ("mulai", "bangun", "halo", "asisten", "start", "wake up")
 KATA_TIDUR = ("tidur", "istirahat", "sleep", "dibur", "tidor", "tiduh", "tidu", "tiur")
-KATA_KELUAR = ("keluar", "berhenti", "exit", "quit")
+# "berhenti" saja tidak lagi mematikan mode suara: kata itu sekarang untuk menghentikan Pillow yang sedang bicara
+KATA_KELUAR = ("keluar", "exit", "quit", "berhenti mendengarkan", "matikan mode suara")
+
+# --- menghentikan Pillow yang sedang bicara ("berhenti", "stop", "diam", "cukup") ---
+HENTI_SAAT_BICARA = True      # False = matikan fitur ini (hemat kuota Whisper)
+AMBANG_HENTI = 900            # lebih tinggi dari AMBANG_BANGUN supaya gema speaker tidak terus terkirim
+_KATA_HENTI_INTI = {"berhenti", "stop", "diam", "cukup", "hentikan", "sst", "ssst", "shh", "stopp"}
+_KATA_HENTI_PELENGKAP = {"oke", "ok", "pillow", "dong", "ya", "sudah", "udah", "deh", "aja", "please", "tolong"}
+
+def _ucapan_henti(p):
+    """True kalau ucapannya HANYA kata henti (maks 3 kata). Gema kalimat Pillow sendiri hampir selalu lebih panjang."""
+    kata = re.sub(r"[^\w\s]", " ", (p or "").lower()).split()
+    if not kata or len(kata) > 3:
+        return False
+    return any(k in _KATA_HENTI_INTI for k in kata) and all(k in _KATA_HENTI_INTI | _KATA_HENTI_PELENGKAP for k in kata)
+
+
+def _pantau_henti(selesai):
+    """Selama perintah diproses: tiap kali Pillow bicara, dengarkan potongan pendek; hentikan TTS kalau dengar kata henti."""
+    while not selesai.is_set():
+        if not asisten.sedang_bicara["event"].wait(0.2):
+            continue
+        p = dengerin(3, ambang=AMBANG_HENTI, saring=False)
+        if selesai.is_set() and not asisten.sedang_bicara["event"].is_set():
+            break
+        if _ucapan_henti(p):
+            print(f"[henti] '{p}' -> suara dihentikan", flush=True)
+            asisten.hentikan_suara()
+            update_ui("memproses", "Oke, berhenti.")
+            break
+
 KATA_YA = ("ya", "iya", "yes", "izinkan", "boleh", "oke", "ok", "lanjut", "yup")
 KATA_TOLAK = ("tidak", "jangan", "batal", "tolak", "no", "nggak", "enggak", "gak")
 KATA_SELALU = ("selalu", "always")
+KATA_NGOBROL = ("ngobrol", "ayo ngobrol", "ngobrol yuk", "ayo cerita", "temani aku", "temenin aku")
+KATA_UDAHAN = ("udahan", "udah dulu", "sudah dulu", "sudahan", "selesai ngobrol", "stop ngobrol", "cukup ngobrolnya")
+DIAM_NGOBROL_DETIK = 90       # mode ngobrol suara mati sendiri setelah diam selama ini
+
+# Kata awal yang menandai perintah. Saat ngobrol (dan di WA/ketikan), ucapan yang tidak tampak seperti perintah
+# langsung jadi obrolan, supaya "aku suka suara hujan" tidak dianggap perintah volume.
+_AWAL_PERINTAH = ("buka", "bukakan", "tutup", "putar", "cari", "carikan", "temukan", "ringkas", "kirim", "bersihkan",
+                  "cleanup", "lihat layar", "baca layar", "minimize", "minimalkan", "maksimalkan", "munculkan",
+                  "tampilkan", "sembunyikan", "naikkan", "turunkan", "mute", "volume", "kecerahan", "brightness",
+                  "perbarui indeks", "segarkan indeks", "hai pillow", "halo pillow", "hi pillow")
 
 _PERINTAH_AWAL = ("buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "tutup tab")
 
@@ -340,16 +383,49 @@ def _perintah_jendela(p, suara):
     return True
 
 
-def proses_perintah(perintah, suara=False, wa_=False):
+def _tampak_perintah(p):
+    t = re.sub(r"[^\w\s]", " ", p.lower())
+    t = re.sub(r"\s+", " ", t).strip()
+    t = re.sub(r"^(?:(?:tolong|coba|pillow|dong|ayo)\s+)+", "", t)
+    aksi_musik = musik.kenali(t)
+    if aksi_musik == "lanjut" and not re.search(r"lagu|musik|putar|mainkan|play|resume", t):
+        return False                       # "lanjut" saja saat ngobrol = lanjutkan cerita, bukan musik
+    if aksi_musik or video.kenali(t):
+        return True
+    if t.startswith(_AWAL_PERINTAH):
+        return True
+    if len(t.split()) <= 6 and re.search(r"\b(?:volume|suara|kecerahan|brightness)\b", t) \
+            and re.search(r"\b(?:naik\w*|turun\w*|mute|bisu|terang\w*|redup\w*)\b", t):
+        return True
+    return bool(jendela.kenali_app(t) and jendela.kenali_aksi(t))
+
+
+_ngobrol = {"aktif": False, "terakhir": 0.0}
+
+def _mode_ngobrol(nyala, reset=True):
+    _ngobrol["aktif"] = nyala
+    _ngobrol["terakhir"] = time.time()
+    if reset:
+        obrolan.reset("suara")
+
+
+def proses_perintah(perintah, suara=False, wa_=False, saluran=None):
+    """saluran ("suara" / "wa" / "ketik"): obrolan aktif di saluran itu; ucapan yang bukan perintah jadi obrolan."""
     ucapan = []
     asisten.set_pendengar(ucapan.append)
     asisten.reset_stop()
     try:
         p = asisten.ke_brave(perintah.lower().strip())   # 'chrome' / 'opera' diarahkan ke Brave
-        
+        if saluran and not _tampak_perintah(p):
+            ngomong(obrolan.ngobrol(saluran, perintah.strip()))
+            return ucapan
+
         aksi_musik = musik.kenali(p)
+        aksi_video = None if aksi_musik else video.kenali(p)
         if aksi_musik:
             ngomong(musik.jalankan(aksi_musik))
+        elif aksi_video:
+            ngomong(video.jalankan(aksi_video))
         elif _perintah_dokumen(p, suara):
             pass
         elif "pillow" in p and ("hi" in p or "hai" in p or "halo" in p):
@@ -361,7 +437,15 @@ def proses_perintah(perintah, suara=False, wa_=False):
                 
         elif "lihat layar" in p or "baca layar" in p:
             pertanyaan = p.replace("lihat layar", "").replace("baca layar", "").strip()
-            lihat_layar(pertanyaan)
+            pertanyaan = re.sub(r"^(?:lagi|dong|ya|sekarang)\b\s*", "", pertanyaan)
+            kanal = saluran or ("suara" if suara else None)
+            if kanal:
+                # deskripsi rinci disimpan sebagai konteks, jadi pertanyaan lanjutan bisa dibahas tanpa kata perintah
+                ngomong(obrolan.lihat_layar(kanal, pertanyaan))
+                if kanal == "suara":
+                    _mode_ngobrol(True, reset=False)
+            else:
+                lihat_layar(pertanyaan)
             
         elif _perintah_jendela(p, suara):
             pass
@@ -369,20 +453,9 @@ def proses_perintah(perintah, suara=False, wa_=False):
             url = p.replace("buka tab ", "").strip()
             buka_tab_brave(url)
             
-        elif "tutup semua tab" in p:
-            nama = p.replace("tutup semua tab ", "").replace(" tab", "").strip()
-            if not nama:
-                ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup semua tab youtube.")
-            else:
-                tutup_semua_tab_brave(nama)
-                    
-        elif "tutup tab" in p:
-            nama = p.replace("tutup tab ", "").replace(" tab", "").strip()
-            if not nama:
-                ngomong("Sebutkan nama tab yang mau ditutup. Contoh: tutup tab youtube.")
-            else:
-                tutup_tab_brave(nama)
-                    
+        elif tab_brave.kenali(p):
+            tab_brave.jalankan(*tab_brave.kenali(p))
+
         elif "volume" in p or "suara" in p:
             angka_match = re.search(r'\d+', p)
             angka = int(angka_match.group()) if angka_match else 10
@@ -438,7 +511,10 @@ def proses_perintah(perintah, suara=False, wa_=False):
             else:
                 ngomong("Oke, dibatalkan.")
         else:
-            tanya_ai(p)
+            if saluran:
+                ngomong(obrolan.ngobrol(saluran, perintah.strip()))
+            else:
+                tanya_ai(p)
     finally:
         asisten.set_pendengar(None)
         asisten.reset_stop()
@@ -498,7 +574,7 @@ def perintah_dari_wa(teks):
         update_ui("memproses", f"WA: {teks}")
         asisten.set_diam(not SUARA_WA)
         try:
-            ucapan = proses_perintah(teks, suara=False, wa_=True)
+            ucapan = proses_perintah(teks, suara=False, wa_=True, saluran="wa")
         finally:
             asisten.set_diam(False)
         return _lapor_hasil(ucapan)
@@ -585,7 +661,7 @@ def terima_perintah():
         return jsonify(ok=False, message="Asisten masih mengerjakan perintah sebelumnya."), 429
     try:
         update_ui("memproses", f"Memproses: {perintah}")
-        ucapan = proses_perintah(perintah, suara=False)
+        ucapan = proses_perintah(perintah, suara=False, saluran="ketik")
         pesan = _lapor_hasil(ucapan)
         return jsonify(ok=True, message=pesan)
     except Exception as e:
@@ -636,30 +712,54 @@ def loop_suara():
                 update_ui("bangun", "Aku siap mendengarkan!")
             continue
 
-        update_ui("mendengarkan", "Mendengarkan...")
-        p = dengerin(ambang=AMBANG_BANGUN)
+        if _ngobrol["aktif"] and time.time() - _ngobrol["terakhir"] > DIAM_NGOBROL_DETIK:
+            _mode_ngobrol(False)
+            print("[obrolan] mode ngobrol selesai (diam)", flush=True)
+        ngobrol_aktif = _ngobrol["aktif"]
+        update_ui("mendengarkan", "Ngobrol... (ucapkan 'udahan' untuk selesai)" if ngobrol_aktif else "Mendengarkan...")
+        p = dengerin(ambang=AMBANG_BANGUN, saring=not ngobrol_aktif)
         if _jeda_kalau_limit():
             continue
         if not p:
             continue
-        if _cocok(p, KATA_TIDUR):
+        if _ucapan_henti(p) and (time.time() - asisten.sedang_bicara["selesai"] < 4 or not musik.kenali(p)):
+            continue   # "stop" telat sesudah Pillow selesai bicara: abaikan, jangan sampai menjeda musik
+        maks = 2 if ngobrol_aktif else 5   # saat ngobrol, "aku susah tidur" bukan perintah tidur
+        if _cocok(p, KATA_TIDUR, maks=maks):
+            _mode_ngobrol(False)
             tidur = True
             ngomong("Oke, aku tidur dulu ya.")
             update_ui("tidur", "Aku sedang tidur...")
             continue
-        if _cocok(p, KATA_KELUAR):
+        if _cocok(p, KATA_KELUAR, maks=maks):
             ngomong("Sampai jumpa!")
             _suara["jalan"] = False
             break
+        if ngobrol_aktif and _cocok(p, KATA_UDAHAN, maks=4):
+            _mode_ngobrol(False)
+            ngomong("Oke, makasih udah ngobrol. Aku balik ke mode perintah ya.")
+            update_ui("bangun", "Aku siap mendengarkan!")
+            continue
+        if not ngobrol_aktif and _cocok(p, KATA_NGOBROL, maks=5):
+            _mode_ngobrol(True)
+            ngomong("Ayo! Mau ngobrol soal apa?")
+            continue
 
         with _kunci:
             update_ui("memproses", f"Memproses: {p}")
+            selesai = threading.Event()
+            if HENTI_SAAT_BICARA:
+                threading.Thread(target=_pantau_henti, args=(selesai,), daemon=True).start()
             try:
-                ucapan = proses_perintah(p, suara=True)
+                ucapan = proses_perintah(p, suara=True, saluran="suara" if ngobrol_aktif else None)
                 _lapor_hasil(ucapan)
             except Exception as e:
                 traceback.print_exc()
                 update_ui("error", str(e), nada="bad")
+            finally:
+                selesai.set()
+        if _ngobrol["aktif"]:
+            _ngobrol["terakhir"] = time.time()   # hitung diam 90 detik sejak Pillow selesai menjawab
         time.sleep(1)
     update_ui("berhenti", "Mode suara berhenti")
 

@@ -7,6 +7,7 @@ Rahasia di rahasia.json: WA_API_KEY (kunci WAHA) dan WA_HMAC_KEY (kunci tanda ta
 Di dashboard WAHA, webhook: http://host.docker.internal:8009/wa/webhook , event: message , HMAC key = WA_HMAC_KEY.
 """
 import os
+import re
 import json
 import hmac
 import time
@@ -26,11 +27,12 @@ PORT = 8009
 HOST = "127.0.0.1"  # shortcut: hanya loopback; kalau webhook tidak sampai dari kontainer, pakai 0.0.0.0 (tetap aman karena HMAC)
 MAKS_BODY = 256 * 1024
 KONFIRMASI_DETIK = 60
-BATAS_KIRIM = (20, 600)  # shortcut: maks 20 pesan per 10 menit, naikkan kalau terlalu ketat
+BATAS_KIRIM = (60, 600)  # maks 60 pesan per 10 menit (dinaikkan dari 20 karena WA sekarang dipakai ngobrol)
 MAKS_SALAH_PASANG = 5
 BANTUAN = "Perintah: status, kunci, matikan, batal, bantuan"
 BANTUAN_ASISTEN = ("Selain itu, ketik perintah seperti ke asisten suara. Contoh: buka youtube, "
-                   "putar lofi, volume naik 20, tutup tab youtube, lihat layar, cari dokumen laporan.")
+                   "putar lofi, volume naik 20, tutup tab youtube, lihat layar, cari dokumen laporan. "
+                   "Pesan lain dianggap obrolan, jadi ngobrol santai saja.")
 
 
 class _Teruskan:
@@ -74,7 +76,7 @@ class Gerbang:
         self.kode_pasang, self.salah = None, 0
         if not self.pemilik:
             self._kode_baru()
-        self.tertunda = None  # (kode, kedaluwarsa)
+        self.tertunda = None  # (jenis "matikan"/"layar", kode, kedaluwarsa, teks asli)
         self.sudah = deque(maxlen=200)
         self.log_kirim = deque()
         self.kunci = threading.Lock()
@@ -155,28 +157,39 @@ class Gerbang:
 
             perintah = kata[0]
             if perintah == "ya" and len(kata) == 2 and self.tertunda:
-                kode, habis = self.tertunda
+                jenis, kode, habis, teks_asli = self.tertunda
                 self.tertunda = None
                 if self.sekarang() > habis:
-                    return "Konfirmasi kedaluwarsa. Ketik matikan lagi."
+                    return "Konfirmasi kedaluwarsa. Ketik " + ("matikan" if jenis == "matikan" else "lihat layar") + " lagi."
                 if not hmac.compare_digest(kata[1].encode(), kode.encode()):
                     return "Kode salah, dibatalkan."
+                if jenis == "layar":
+                    return _Teruskan(teks_asli)
                 self.jalankan("matikan")
                 return "Laptop mati 30 detik lagi. Balas batal untuk menghentikan."
             self.tertunda = None
-            if perintah == "matikan":
+            # isi layar keluar dari laptop (ke Groq lalu ke WhatsApp), jadi minta kode seperti matikan
+            if self.perintah and re.match(r"(?:lihat|baca) layar\b", teks.lower()):
                 kode = f"{secrets.randbelow(10**4):04d}"
-                self.tertunda = (kode, self.sekarang() + KONFIRMASI_DETIK)
+                self.tertunda = ("layar", kode, self.sekarang() + KONFIRMASI_DETIK, teks)
+                return (f"Isi layarmu akan dikirim ke Groq lalu diringkas ke sini. "
+                        f"Balas: ya {kode} dalam {KONFIRMASI_DETIK} detik untuk lanjut.")
+            # perintah bawaan hanya kalau pesannya memang perintah itu saja, supaya obrolan seperti
+            # "kunci jawaban soal ini apa" tidak mengunci layar
+            inti = re.sub(r"[^\w\s]", "", teks.lower()).strip()
+            if inti in ("matikan", "matikan laptop"):
+                kode = f"{secrets.randbelow(10**4):04d}"
+                self.tertunda = ("matikan", kode, self.sekarang() + KONFIRMASI_DETIK, teks)
                 return f"Balas: ya {kode} dalam {KONFIRMASI_DETIK} detik untuk mematikan laptop."
-            if perintah == "batal":
+            if inti == "batal":
                 self.jalankan("batal_matikan")
                 return "Dibatalkan."
-            if perintah == "kunci":
+            if inti in ("kunci", "kunci layar", "kunci laptop"):
                 self.jalankan("kunci")
                 return "Layar dikunci."
-            if perintah == "status":
+            if inti in ("status", "status laptop"):
                 return _status()
-            if perintah == "bantuan":
+            if inti in ("bantuan", "help"):
                 return BANTUAN + (". " + BANTUAN_ASISTEN if self.perintah else "")
             if self.perintah:
                 return _Teruskan(teks)

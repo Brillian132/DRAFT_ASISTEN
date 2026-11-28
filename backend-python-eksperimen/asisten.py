@@ -176,6 +176,9 @@ def set_diam(nyala):
 
 _galat_terakhir = None
 
+# Status TTS, dipakai server.py untuk mendengarkan perintah "berhenti" selama Pillow bicara
+sedang_bicara = {"event": threading.Event(), "teks": "", "selesai": 0.0}
+
 def ambil_galat():
     global _galat_terakhir
     g, _galat_terakhir = _galat_terakhir, None
@@ -233,6 +236,8 @@ def ngomong(teks):
     if _stop_suara.is_set() or _diam.is_set():
         return
     with _tts_lock:
+        sedang_bicara["teks"] = teks
+        sedang_bicara["event"].set()
         try:
             _ucapkan_sapi(teks)
         except Exception as e:
@@ -241,6 +246,9 @@ def ngomong(teks):
                 _ucapkan_pyttsx3(teks)
             except Exception as e2:
                 print(f"[TTS error] {e2}", flush=True)
+        finally:
+            sedang_bicara["event"].clear()
+            sedang_bicara["selesai"] = time.time()
 
 AMBANG_HENING = 250
 
@@ -302,6 +310,7 @@ def koreksi_kata_asing(teks):
         "brave": ["breiv", "breif", "brev", "brep", "bref", "breve", "brave"],
         "chrome": ["krom", "krome", "kroum", "kroom", "crome", "chrom", "khrom"],
         "minimize": ["minimais", "minimaiz", "minimise", "minimaise", "minimais"],
+        "fullscreen": ["fulskrin", "fullskrin", "fulscreen", "fulskren", "fullskren"],
         "pillow": ["pilo", "pilou", "pilow", "pilo", "pilow", "pilow"],
     }
     
@@ -352,11 +361,13 @@ def _rekam(durasi, batas, fs):
     rec = np.concatenate(bagian) if bagian else np.zeros((0, 1), dtype=np.int16)
     return rec, bicara
 
-def dengerin(durasi=5, ambang=None):
+def dengerin(durasi=5, ambang=None, saring=True):
+    """saring=False (mode ngobrol): ucapan tanpa kata perintah tetap dikembalikan."""
     global _galat_terakhir
     batas = AMBANG_HENING if ambang is None else ambang
     print("\n[Mendengarkan...]", flush=True)
-    path = os.path.join(tempfile.gettempdir(), "asisten_temp_audio.wav")
+    # nama unik per thread: pemantau "berhenti" bisa merekam bersamaan dengan pendengar utama
+    path = os.path.join(tempfile.gettempdir(), f"asisten_temp_audio_{threading.get_ident()}.wav")
     try:
         fs = 16000
         try:
@@ -402,8 +413,8 @@ def dengerin(durasi=5, ambang=None):
         text = re.sub(r'\b(hai\s+)+', 'hai ', text).strip()
         print(f"Kamu (Suara setelah koreksi): {text}", flush=True)
         
-        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "minimize", "minimalkan", "kecilkan", "sembunyikan", "maksimalkan", "munculkan", "kembalikan", "brave", "chrome", "opera", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor", "lagu", "musik", "jeda", "pause", "next", "skip", "lewati", "lanjut", "resume", "diputar"]
-        if len(text) < 3 or not any(k in text for k in kata_perintah):
+        kata_perintah = ["buka", "tutup", "putar", "cari", "ringkas", "kirim", "bersihkan", "cleanup", "mulai", "bangun", "tidur", "istirahat", "keluar", "berhenti", "matikan", "tab", "word", "excel", "powerpoint", "discord", "steam", "semua", "youtube", "github", "google", "claude", "deepseek", "spotify", "volume", "suara", "kecerahan", "layar", "brightness", "mute", "naik", "turun", "pillow", "lihat", "baca", "timer", "ingatkan", "pengingat", "hitung", "minimize", "minimalkan", "kecilkan", "sembunyikan", "maksimalkan", "munculkan", "kembalikan", "brave", "chrome", "opera", "dokumen", "berkas", "folder", "indeks", "pertama", "kedua", "ketiga", "keempat", "kelima", "nomor", "lagu", "musik", "jeda", "pause", "next", "skip", "lewati", "lanjut", "resume", "diputar", "ngobrol", "cerita", "temani", "fullscreen", "full", "penuh", "video"]
+        if len(text) < 3 or (saring and not any(k in text for k in kata_perintah)):
             print("[Bukan perintah / obrolan sampah. Diabaikan agar API tidak boros]", flush=True)
             return ""
 
@@ -448,6 +459,45 @@ def analisis_market(pertanyaan):
         else:
             _galat_terakhir = "ai"
             ngomong("Waduh, ada error pas menganalisis.")
+
+def _tangkap_layar_base64():
+    with mss.mss() as sct:
+        shot = sct.grab(sct.monitors[1])
+        img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+    img.thumbnail((1280, 1280))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+def _vision(prompt, img_base64, max_tokens=300):
+    """Groq Llama 4 Scout, cadangan Gemini. Melempar error kalau keduanya gagal."""
+    global _galat_terakhir
+    try:
+        hasil = _get_client().chat.completions.create(
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}},
+            ]}],
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            max_tokens=max_tokens,
+        )
+        return hasil.choices[0].message.content
+    except Exception as e_groq:
+        print(f"[Groq Vision gagal, coba Gemini] {e_groq}", flush=True)
+        if _apakah_limit(e_groq):
+            _galat_terakhir = "limit"
+        if not GEMINI_API_KEY:
+            raise
+        model_gemini = genai.GenerativeModel('gemini-3.8-flash')
+        return model_gemini.generate_content([prompt, {"mime_type": "image/jpeg", "data": img_base64}]).text
+
+def deskripsi_layar(prompt):
+    """Deskripsi rinci layar untuk konteks obrolan (dipakai obrolan.py). None kalau gagal. Gambar tidak disimpan ke disk."""
+    try:
+        return (_vision(prompt, _tangkap_layar_base64(), max_tokens=900) or "").strip() or None
+    except Exception as e:
+        print(f"[deskripsi_layar error] {e}", flush=True)
+        return None
 
 def lihat_layar(pertanyaan=""):
     ngomong("Oke, aku lihat layarmu sebentar ya...")

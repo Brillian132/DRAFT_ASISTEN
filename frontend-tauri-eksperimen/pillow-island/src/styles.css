@@ -829,3 +829,32 @@ svg { display: block; }
 body.dok-t1 .dk-tumpuk-1 { opacity: 1; pointer-events: auto; }
 body.dok-t2 .dk-tumpuk-2 { opacity: 1; pointer-events: auto; }
 body:not(.dok-t1) .dk-tumpuk-1, body:not(.dok-t2) .dk-tumpuk-2 { transition-delay: 0s; }
+
+/* =========================================
+   --- WAJAH KARTU: ikon hantu dengan mata yang bergerak ---
+   Cincin ungu mengikuti ikon; titik di gelembung tetesan berwarna sesuai nada (--tone).
+   Mata memakai variabel lirikan yang sama dengan mata pill (--gx, --gy, --blink, --gdur),
+   jadi gerakan dan kedipan dari main.js langsung berlaku. Satuan translate = satuan viewBox SVG.
+   ========================================= */
+.kt-face { width: auto; height: auto; background: none; border-radius: 0; gap: 0; }
+.ghost { height: 58px; width: auto; display: block; overflow: visible; }
+.g-ring { fill: #a24dfd; }
+.g-dot { fill: var(--tone); transition: fill 0.25s ease; }
+.g-face { fill: #ffffff; }
+.g-eye {
+  fill: #0e021a;
+  transform-box: fill-box;
+  transform-origin: center;
+  /* clamp terukur: pada batas ini mata tetap >= 6 satuan dari tepi wajah di semua ekspresi (jangan dilonggarkan) */
+  translate: clamp(-26px, calc(var(--gx, 0) * 5.2px), 26px) clamp(-28px, calc(var(--gy, 0) * 12px), 28px);
+  scale: 1 var(--blink, 1);
+  transition:
+    translate var(--gdur, 0.14s) cubic-bezier(0.22, 1, 0.36, 1),
+    scale 0.07s ease-out, transform 0.25s ease, rotate 0.25s ease;
+}
+/* ekspresi (data-mood di #pill): senang = menyipit, kaget = membesar, khawatir = miring ke dalam */
+#pill[data-mood="happy"] .g-eye { scale: 1.12 calc(0.4 * var(--blink, 1)); transform: translateY(-12px); }
+#pill[data-mood="surprised"] .g-eye { scale: 1.18 calc(1.2 * var(--blink, 1)); }
+#pill[data-mood="worried"] .g-eye { scale: 1 calc(0.8 * var(--blink, 1)); }
+#pill[data-mood="worried"] .g-eye.l { rotate: 14deg; }
+#pill[data-mood="worried"] .g-eye.r { rotate: -14deg; }

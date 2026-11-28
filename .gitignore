@@ -31,3 +31,4 @@ config.json
 binaries/
 tes_server_dist/
 *_dist/
+*.wav

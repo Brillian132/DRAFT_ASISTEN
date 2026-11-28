@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="versi" content="media-halaman-2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>pillow-island</title>
+    <style>
+      /* Sedikit tambahan CSS untuk teks asisten agar rapi */
+      .v-assistant {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        width: 100%;
+        height: 100%;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #c4b5fd;
+        margin-right: 8px;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.3; }
+        100% { opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="pill" data-state="small">
+
+      <!-- TAMPILAN: Mode Asisten Suara (Mata AI) -->
+      <div class="v v-assistant">
+        <div class="ai-face">
+          <div class="eye l" id="left-eye"></div>
+          <div class="eye r" id="right-eye"></div>
+        </div>
+        <span id="status-teks" style="display: none;">Menunggu perintah...</span>
+      </div>
+
+      <!-- kecil: jam atau hitungan mundur timer -->
+      <div class="v v-small"><span class="dot"></span><span id="clk">09:41</span></div>
+
+      <!-- notifikasi singkat: charger, Bluetooth, mikrofon/kamera dipakai -->
+      <div class="v v-toast">
+        <div class="ts-ic" id="ts-ic"><svg width="18" height="18" viewBox="0 0 24 24"><path id="ts-path" d=""/></svg></div>
+        <div class="meta">
+          <b id="ts-text">Teks</b>
+          <small id="ts-sub" class="hidden"></small>
+        </div>
+        <span class="ts-val" id="ts-val"></span>
+      </div>
+
+      <!-- hasil pencarian dokumen: satu kartu, gulir untuk dokumen lain -->
+      <div class="v v-dok">
+        <div class="dk-kartu" id="dk-kartu" title="Klik untuk membuka">
+          <div class="dk-ikon" id="dk-ikon" data-tipe="lain"><span id="dk-ext">PDF</span></div>
+          <div class="dk-teks">
+            <div class="dk-atas"><small id="dk-label">Dokumen</small><small id="dk-hitung"></small></div>
+            <b id="dk-nama">Nama file</b>
+            <small id="dk-sub"></small>
+          </div>
+          <button id="dk-folder" aria-label="Tampilkan di folder" title="Tampilkan di folder"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></button>
+          <button id="dk-tutup" aria-label="Tutup" title="Tutup"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
+        </div>
+      </div>
+
+      <!-- animasi charger: colokan dan stopkontak menyatu, lalu cincin persen baterai -->
+      <div class="v v-power">
+        <div class="pw-stage">
+          <div class="pw-pair">
+            <div class="pw-plug">
+              <svg viewBox="0 0 24 24"><rect x="1" y="7" width="10" height="10" rx="3"/><rect x="11" y="8.5" width="7" height="2" rx="1"/><rect x="11" y="13.5" width="7" height="2" rx="1"/></svg>
+            </div>
+            <div class="pw-socket">
+              <svg viewBox="0 0 24 24"><rect class="pw-sock-body" x="6" y="3.5" width="16" height="17" rx="5"/><rect x="9" y="8.5" width="6" height="2" rx="1"/><rect x="9" y="13.5" width="6" height="2" rx="1"/></svg>
+            </div>
+            <span class="pw-spark"></span>
+          </div>
+          <div class="pw-ringwrap">
+            <svg class="pw-ring" viewBox="0 0 48 48">
+              <circle class="pw-ring-bg" cx="24" cy="24" r="20" />
+              <circle class="pw-ring-fg" id="pw-ring-fg" cx="24" cy="24" r="20" />
+            </svg>
+            <svg class="pw-bolt" viewBox="0 0 24 24"><path id="pw-ic" d=""/></svg>
+          </div>
+        </div>
+        <div class="meta">
+          <b id="pw-title">Mengisi daya</b>
+          <small id="pw-sub">Charger terpasang</small>
+        </div>
+        <span class="pw-val" id="pw-val">0%</span>
+      </div>
+
+      <!-- titik indikator: mikrofon (kuning) dan kamera (hijau) sedang dipakai aplikasi lain -->
+      <div class="indikator">
+        <span class="ind ind-mic hidden" id="ind-mic"></span>
+        <span class="ind ind-cam hidden" id="ind-cam"></span>
+      </div>
+
+      <!-- kartu: izin (Tolak / Izinkan / Selalu) dan hasil perintah (hijau / merah) -->
+      <div class="v v-card">
+        <div class="kt-face">
+          <div class="eye l"></div>
+          <div class="eye r"></div>
+        </div>
+        <div class="meta">
+          <small id="kt-label">Selesai</small>
+          <b id="kt-text">Teks</b>
+          <small id="kt-hint" class="hidden">Atau ucapkan: ya / tidak</small>
+          <div class="acts hidden" id="kt-izin">
+            <button id="kt-tolak">Tolak</button>
+            <button class="pri" id="kt-izinkan">Izinkan</button>
+            <button id="kt-selalu">Selalu</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- media: tiga halaman yang bisa digeser (Media, Timer, Pengingat) -->
+      <div class="v v-media" id="pg-wrap">
+        <div class="pg-track" id="pg-track">
+
+          <!-- halaman 1: media (judul, garis durasi, kontrol, lirik di kanan) -->
+          <section class="pg pg-media" aria-label="Media">
+            <div class="cover" id="cover">
+              <span class="cv-badge hidden" id="cv-badge"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+            </div>
+            <div class="pm-mid">
+              <b id="m-title">Putar lagu untuk mulai</b>
+              <div class="prog"><span id="mp" style="width:0%"></span></div>
+              <div class="ctl pm-ctl">
+                <button id="prev" aria-label="Sebelumnya"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+                <button class="main" id="pp" aria-label="Putar atau jeda"><svg id="ppi" width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M7 5v14l12-7z"/></svg></button>
+                <button id="next" aria-label="Berikutnya"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+                <button id="lyr" aria-label="Lirik: besar" title="Lirik: besar (klik untuk mengganti)"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></button>
+              </div>
+            </div>
+            <div class="pm-lyr">
+              <b id="m-lyr-now">Tidak ada media</b>
+              <small id="m-lyr-next"></small>
+            </div>
+          </section>
+
+          <!-- halaman 2: timer -->
+          <section class="pg pg-tim" aria-label="Timer">
+            <div class="pt-ring">
+              <svg width="92" height="92" viewBox="0 0 92 92" aria-hidden="true">
+                <circle cx="46" cy="46" r="40" fill="none" stroke="#2a2a33" stroke-width="8" />
+                <circle cx="46" cy="46" r="40" fill="none" stroke="var(--accent2)" stroke-width="8" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="0" />
+              </svg>
+              <div id="pt-time">25:00</div>
+            </div>
+            <div class="pt-mid">
+              <small>Timer fokus</small>
+              <div class="pt-presets">
+                <button class="pt-preset" data-min="5">5 mnt</button>
+                <button class="pt-preset" data-min="15">15 mnt</button>
+                <button class="pt-preset on" data-min="25">25 mnt</button>
+              </div>
+              <div class="pt-row">
+                <input id="pg-t-min" type="number" min="1" max="999" value="25" aria-label="Lama timer dalam menit" />
+                <span>mnt</span>
+                <button class="go" id="pg-t-go">Mulai</button>
+              </div>
+            </div>
+            <div class="pm-lyr pt-next">
+              <small>Pengingat berikutnya</small>
+              <b id="pt-next-time">Belum ada</b>
+              <small id="pt-next-text">Tambah di halaman Pengingat</small>
+            </div>
+          </section>
+
+          <!-- halaman 3: pengingat -->
+          <section class="pg pg-rem" aria-label="Pengingat">
+            <div class="pr-form">
+              <small>Pengingat baru</small>
+              <input id="pg-r-text" type="text" placeholder="Apa yang mau diingat?" maxlength="40" aria-label="Isi pengingat" />
+              <div class="pr-row">
+                <input id="pg-r-time" type="time" aria-label="Jam pengingat" />
+                <button class="go" id="pg-r-go">Simpan</button>
+              </div>
+            </div>
+            <div class="pm-lyr pr-list" id="pg-r-list"></div>
+          </section>
+
+        </div>
+        <div class="pg-dots">
+          <button class="pg-dot on" data-i="0" aria-label="Halaman Media"></button>
+          <button class="pg-dot" data-i="1" aria-label="Halaman Timer"></button>
+          <button class="pg-dot" data-i="2" aria-label="Halaman Pengingat"></button>
+        </div>
+      </div>
+
+      <!-- timer berjalan -->
+      <div class="v v-timer">
+        <div class="ring">
+          <svg width="56" height="56" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="23" fill="none" stroke="#26262e" stroke-width="5" />
+            <circle id="rg" cx="28" cy="28" r="23" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="0" />
+          </svg>
+        </div>
+        <div class="meta"><small id="tl">Timer fokus</small><span class="big" id="tm">25:00</span></div>
+        <div class="ctl">
+          <button class="main" id="tp" aria-label="Jeda timer"><svg id="tpi" width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
+          <button id="tc" aria-label="Batalkan timer"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg></button>
+        </div>
+      </div>
+
+      <!-- pengingat / timer selesai -->
+      <div class="v v-reminder">
+        <div class="bell">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/></svg>
+          <em></em>
+        </div>
+        <div class="meta">
+          <small id="al-kind">Pengingat</small>
+          <b id="al-title">Judul</b>
+          <small id="al-sub" class="accent-text">Pukul 20.00</small>
+          <div class="acts"><button class="pri" id="done">Selesai</button><button id="snooze">Tunda 10 menit</button></div>
+        </div>
+      </div>
+
+      <!-- form tambah + daftar pengingat -->
+      <div class="v v-add">
+        <div class="add-wrap">
+          <div class="seg-row">
+            <div class="seg">
+              <button id="seg-timer" class="on">Timer</button>
+              <button id="seg-rem">Pengingat</button>
+              <button id="seg-list">Daftar</button>
+            </div>
+          </div>
+          <div class="fields" id="f-timer">
+            <input id="t-min" class="num" type="number" min="1" max="999" value="25" />
+            <span class="unit">menit</span>
+            <input id="t-label" type="text" placeholder="Label (opsional)" maxlength="30" />
+          </div>
+          <div class="fields hidden" id="f-rem">
+            <input id="r-text" type="text" placeholder="Apa yang mau diingat?" maxlength="40" />
+            <input id="r-time" class="time" type="time" />
+          </div>
+          <div class="rem-list hidden" id="f-list"></div>
+          <div class="acts" id="add-acts">
+            <button class="pri" id="add-ok">Mulai</button>
+            <button id="add-cancel">Batal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- kartu yang mengintip di bawah hasil dokumen (di luar pill) -->
+    <div class="dk-tumpuk dk-tumpuk-1" id="dk-t1" aria-hidden="true"></div>
+    <div class="dk-tumpuk dk-tumpuk-2" id="dk-t2" aria-hidden="true"></div>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

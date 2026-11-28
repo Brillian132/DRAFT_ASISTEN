@@ -1399,7 +1399,7 @@ function pilihTarget(mode, sebelumnya) {
 }
 
 async function kedip() {
-  if (pill.dataset.mood === "happy") return; // mata senang berbentuk lengkung, tidak perlu berkedip
+  if (pill.dataset.mood === "happy" && state !== "card") return; // mata senang di pill kecil berbentuk lengkung; mata hantu di kartu boleh berkedip
   pill.style.setProperty("--blink", "0.08");
   await tidurMs(95);
   pill.style.setProperty("--blink", "1");
